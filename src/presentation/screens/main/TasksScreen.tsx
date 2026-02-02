@@ -132,6 +132,7 @@ export const TasksScreen: React.FC = () => {
     const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
     const [showGoalFilter, setShowGoalFilter] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
     // Add Task Form State
     const [showAddTask, setShowAddTask] = useState(false);
@@ -214,6 +215,17 @@ export const TasksScreen: React.FC = () => {
                 },
             ]
         );
+    };
+
+    // Show task details modal
+    const showTaskDetails = (task: Task) => {
+        setSelectedTask(task);
+    };
+
+    // Get task goal for modal
+    const getTaskGoal = (task: Task | null) => {
+        if (!task) return null;
+        return goals.find(g => g.id === task.goalId);
     };
 
     // Scroll to initial position (today - 2 days) on mount
@@ -521,7 +533,7 @@ export const TasksScreen: React.FC = () => {
                                         <Card style={styles.taskCard}>
                                             <TouchableOpacity
                                                 style={styles.taskRow}
-                                                onPress={() => toggleTaskStatus(task)}
+                                                onPress={() => showTaskDetails(task)}
                                             >
                                                 <View style={styles.taskContent}>
                                                     <Text style={[
@@ -547,14 +559,17 @@ export const TasksScreen: React.FC = () => {
                                                         </View>
                                                     </View>
                                                 </View>
-                                                <View style={[
-                                                    styles.checkbox,
-                                                    task.status === 'COMPLETED' && styles.checkboxCompleted
-                                                ]}>
+                                                <TouchableOpacity
+                                                    onPress={() => toggleTaskStatus(task)}
+                                                    style={[
+                                                        styles.checkbox,
+                                                        task.status === 'COMPLETED' && styles.checkboxCompleted
+                                                    ]}
+                                                >
                                                     {task.status === 'COMPLETED' && (
                                                         <Ionicons name="checkmark" size={14} color={colors.text.inverse} />
                                                     )}
-                                                </View>
+                                                </TouchableOpacity>
                                             </TouchableOpacity>
                                         </Card>
                                     </View>
@@ -909,6 +924,78 @@ export const TasksScreen: React.FC = () => {
                         </ScrollView>
                     </View>
                 </KeyboardAvoidingView>
+            </Modal>
+
+            {/* Task Detail Modal */}
+            <Modal
+                visible={selectedTask !== null}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setSelectedTask(null)}
+            >
+                <TouchableOpacity
+                    style={styles.detailModalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setSelectedTask(null)}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        style={styles.detailModalContent}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        {selectedTask && (
+                            <>
+                                {/* Close Button */}
+                                <TouchableOpacity
+                                    onPress={() => setSelectedTask(null)}
+                                    style={styles.detailModalCloseBtn}
+                                >
+                                    <Ionicons name="close" size={24} color={colors.text.secondary} />
+                                </TouchableOpacity>
+
+                                {/* Title */}
+                                <Text style={styles.detailModalTitle}>{selectedTask.title}</Text>
+
+                                {/* Meta Info */}
+                                <Text style={styles.detailModalMeta}>
+                                    • {selectedTask.estimatedMinutes} min • {selectedTask.priority} priority • {selectedTask.status}
+                                </Text>
+
+                                {/* Description */}
+                                <ScrollView style={styles.detailModalDescScroll} nestedScrollEnabled>
+
+                                    {selectedTask.description && (
+                                        <>
+                                            <Text style={styles.detailModalTipsLabel}>Description</Text>
+                                            <Text style={styles.detailModalDesc}>{selectedTask.description}</Text>
+                                        </>
+                                    )}
+
+                                    {/* Tips */}
+                                    {selectedTask.aiReasoning && (
+                                        <>
+                                            <Text style={styles.detailModalTipsLabel}>Tips</Text>
+                                            <Text style={styles.detailModalDesc}>{selectedTask.aiReasoning}</Text>
+                                        </>
+                                    )}
+                                </ScrollView>
+
+                                {/* Action Button */}
+                                <TouchableOpacity
+                                    style={styles.detailModalActionBtn}
+                                    onPress={() => {
+                                        toggleTaskStatus(selectedTask);
+                                        setSelectedTask(null);
+                                    }}
+                                >
+                                    <Text style={styles.detailModalActionText}>
+                                        {selectedTask.status === 'COMPLETED' ? 'Mark Incomplete' : 'Mark Complete'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </TouchableOpacity>
             </Modal>
         </SafeAreaView>
     );
@@ -1453,6 +1540,84 @@ const styles = StyleSheet.create({
     pickerItem: {
         ...typography.variants.body,
         color: colors.text.primary,
+    },
+
+    // Task Detail Modal
+    detailModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: spacing.lg,
+    },
+    detailModalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: spacing.lg,
+        width: '100%',
+        maxWidth: 400,
+        maxHeight: '80%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+        elevation: 15,
+    },
+    detailModalCloseBtn: {
+        position: 'absolute',
+        top: spacing.sm,
+        right: spacing.sm,
+        padding: spacing.xs,
+        zIndex: 1,
+    },
+    detailModalTitle: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: typography.fontWeight.bold as any,
+        color: colors.text.primary,
+        textAlign: 'center',
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+        paddingHorizontal: spacing.xl,
+    },
+    detailModalMeta: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.sm,
+    },
+    detailModalGoal: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.md,
+    },
+    detailModalDescScroll: {
+        maxHeight: 300,
+        marginBottom: spacing.lg,
+    },
+    detailModalDesc: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        lineHeight: 22,
+        textAlign: 'left',
+    },
+    detailModalTipsLabel: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.semibold as any,
+        color: colors.text.primary,
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+    },
+    detailModalActionBtn: {
+        backgroundColor: colors.primary.main,
+        paddingVertical: spacing.sm + 2,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    detailModalActionText: {
+        fontSize: typography.fontSize.base,
+        fontWeight: typography.fontWeight.semibold as any,
+        color: '#fff',
     },
 });
 

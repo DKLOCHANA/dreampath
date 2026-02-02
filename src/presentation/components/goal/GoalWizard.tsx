@@ -11,6 +11,7 @@ import {
     Platform,
     Modal,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,8 +21,9 @@ import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { GoalCategory, GoalPriority, Goal } from '@/domain/entities/Goal';
-import { saveGoalLocally } from '@/data';
+import { saveGoalLocally, saveTasksLocally } from '@/data';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { generatePlanWithAI } from '@/services/aiPlanService';
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -118,6 +120,7 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
     const user = useAuthStore((state) => state.user);
     const [currentStep, setCurrentStep] = useState(initialStep);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Step 1: Goal Details
@@ -207,6 +210,7 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
         if (!validateStep()) return;
 
         setIsSubmitting(true);
+        setLoadingMessage('Saving your goal...');
 
         try {
             const wizardData: GoalWizardData = {
@@ -249,20 +253,63 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                 updatedAt: new Date(),
             };
 
-            // Save goal locally
+            // Save goal locally first
             await saveGoalLocally(newGoal);
+            console.log('[GoalWizard] Goal saved locally:', newGoal.title);
 
-            // TODO: Call AI API to generate tasks for this goal
-            // Tasks will be created when user connects to the AI service
+            // Call AI API to generate tasks
+            try {
+                setLoadingMessage('🤖 AI is creating your personalized plan...');
+                console.log('[GoalWizard] Calling AI to generate tasks...');
+                console.log('[GoalWizard] Sending data:', JSON.stringify(wizardData, null, 2));
 
-            console.log('[GoalWizard] Goal created:', newGoal.title);
+                const { tasks, plan } = await generatePlanWithAI(
+                    newGoal,
+                    wizardData,
+                    user?.id,
+                    user?.displayName
+                );
 
-            onComplete(wizardData, newGoal);
-        } catch (error) {
+                setLoadingMessage('Saving your tasks...');
+
+                // Save generated tasks locally
+                if (tasks.length > 0) {
+                    await saveTasksLocally(tasks);
+                    console.log('[GoalWizard] AI generated', tasks.length, 'tasks');
+
+                    // Update goal metrics
+                    newGoal.metrics.totalTasks = tasks.length;
+                    await saveGoalLocally(newGoal);
+                }
+
+                setLoadingMessage('');
+                setIsSubmitting(false);
+
+                // Show success with AI summary
+                Alert.alert(
+                    '🎯 Goal Created!',
+                    `${plan.motivationalMessage}\n\n✨ ${tasks.length} personalized tasks generated!\n📅 ${plan.totalWeeks} weeks plan\n🎯 ${Math.round(plan.successProbability * 100)}% success probability`,
+                    [{ text: 'Let\'s Go!', onPress: () => onComplete(wizardData, newGoal) }]
+                );
+                return;
+            } catch (aiError: any) {
+                console.warn('[GoalWizard] AI generation failed:', aiError.message);
+                setLoadingMessage('');
+                setIsSubmitting(false);
+
+                // Goal is saved, but no AI tasks - user can still proceed
+                Alert.alert(
+                    'Goal Created',
+                    `Your goal "${newGoal.title}" has been saved.\n\nAI task generation is temporarily unavailable - you can add tasks manually.`,
+                    [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                );
+                return;
+            }
+        } catch (error: any) {
             console.error('[GoalWizard] Error:', error);
-            Alert.alert('Error', 'Failed to create goal. Please try again.');
-        } finally {
+            setLoadingMessage('');
             setIsSubmitting(false);
+            Alert.alert('Error', 'Failed to create goal. Please try again.');
         }
     };
 
@@ -780,6 +827,24 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                     style={styles.continueButton}
                 />
             </View>
+
+            {/* Loading Overlay */}
+            {isSubmitting && (
+                <Modal transparent animationType="fade">
+                    <View style={styles.loadingOverlay}>
+                        <View style={styles.loadingCard}>
+                            <View style={styles.loadingSpinner}>
+                                <ActivityIndicator size="large" color={colors.primary.main} />
+                            </View>
+                            <Text style={styles.loadingTitle}>Creating Your Plan</Text>
+                            <Text style={styles.loadingMessage}>{loadingMessage}</Text>
+                            <Text style={styles.loadingHint}>
+                                Our AI is analyzing your goal and creating personalized tasks...
+                            </Text>
+                        </View>
+                    </View>
+                </Modal>
+            )}
         </KeyboardAvoidingView>
     );
 };
@@ -1164,6 +1229,56 @@ const styles = StyleSheet.create({
     },
     continueButton: {
         minWidth: 120,
+    },
+
+    // Loading Overlay
+    loadingOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: spacing.xl,
+    },
+    loadingCard: {
+        backgroundColor: colors.background.primary,
+        borderRadius: spacing.borderRadius.xl,
+        padding: spacing.xl,
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 320,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    loadingSpinner: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: colors.primary.main + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+    },
+    loadingTitle: {
+        ...typography.variants.h4,
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
+        textAlign: 'center',
+    },
+    loadingMessage: {
+        ...typography.variants.body,
+        color: colors.primary.main,
+        marginBottom: spacing.md,
+        textAlign: 'center',
+        fontWeight: '600',
+    },
+    loadingHint: {
+        ...typography.variants.bodySmall,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });
 

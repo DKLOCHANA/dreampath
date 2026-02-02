@@ -9,6 +9,7 @@ import {
     RefreshControl,
     Image,
     Dimensions,
+    Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -116,6 +117,7 @@ export const HomeScreen: React.FC = () => {
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
     // Load data
     const loadData = async () => {
@@ -177,6 +179,17 @@ export const HomeScreen: React.FC = () => {
             await updateTaskStatusLocally(task.id, newStatus);
             await loadData();
         }
+    };
+
+    // Show task details modal
+    const showTaskDetails = (task: Task) => {
+        setSelectedTask(task);
+    };
+
+    // Get task goal for modal
+    const getTaskGoal = (task: Task | null) => {
+        if (!task) return null;
+        return goals.find(g => g.id === task.goalId);
     };
 
     return (
@@ -321,6 +334,7 @@ export const HomeScreen: React.FC = () => {
                                     <TouchableOpacity
                                         style={styles.taskCard}
                                         activeOpacity={0.7}
+                                        onPress={() => showTaskDetails(task)}
                                     >
                                         {/* Left Gradient Accent */}
                                         <LinearGradient
@@ -430,9 +444,10 @@ export const HomeScreen: React.FC = () => {
 
                     {goals.length > 0 ? (
                         <ScrollView
-                            horizontal
+                            horizontal={goals.length > 1}
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.goalsScrollContent}
+                            contentContainerStyle={goals.length === 1 ? styles.goalsScrollContentSingle : styles.goalsScrollContent}
+                            scrollEnabled={goals.length > 1}
                         >
                             {goals.map((goal) => {
                                 const categoryConfig = getCategoryConfig(goal.category);
@@ -443,13 +458,13 @@ export const HomeScreen: React.FC = () => {
                                     : 0;
 
                                 return (
-                                    <View key={goal.id} style={styles.goalCardShadow}>
+                                    <View key={goal.id} style={goals.length === 1 ? styles.goalCardShadowFull : styles.goalCardShadow}>
                                         <TouchableOpacity activeOpacity={0.9}>
                                             <LinearGradient
                                                 colors={categoryConfig.gradient}
                                                 start={{ x: 0, y: 0 }}
                                                 end={{ x: 1, y: 1 }}
-                                                style={styles.goalCard}
+                                                style={goals.length === 1 ? styles.goalCardFull : styles.goalCard}
                                             >
                                                 <View style={styles.goalCardHeader}>
                                                     <View style={styles.goalCategoryIcon}>
@@ -508,6 +523,79 @@ export const HomeScreen: React.FC = () => {
 
 
             </ScrollView>
+
+            {/* Task Detail Modal */}
+            <Modal
+                visible={selectedTask !== null}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setSelectedTask(null)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setSelectedTask(null)}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        style={styles.modalContent}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        {selectedTask && (
+                            <>
+                                {/* Close Button */}
+                                <TouchableOpacity
+                                    onPress={() => setSelectedTask(null)}
+                                    style={styles.modalCloseBtn}
+                                >
+                                    <Ionicons name="close" size={24} color={colors.text.secondary} />
+                                </TouchableOpacity>
+
+                                {/* Title */}
+                                <Text style={styles.modalTitle}>{selectedTask.title}</Text>
+
+                                {/* Meta Info */}
+                                <Text style={styles.modalMeta}>
+                                    {selectedTask.estimatedMinutes} min • {selectedTask.priority} priority • {selectedTask.status}
+                                </Text>
+
+                                {/* Goal */}
+                                {getTaskGoal(selectedTask) && (
+                                    <Text style={styles.modalGoal}>Goal: {getTaskGoal(selectedTask)?.title}</Text>
+                                )}
+
+                                {/* Description */}
+                                <ScrollView style={styles.modalDescScroll} nestedScrollEnabled>
+                                    {selectedTask.description && (
+                                        <Text style={styles.modalDesc}>{selectedTask.description}</Text>
+                                    )}
+
+                                    {/* Tips */}
+                                    {selectedTask.aiReasoning && (
+                                        <>
+                                            <Text style={styles.modalTipsLabel}>💡 Tips</Text>
+                                            <Text style={styles.modalDesc}>{selectedTask.aiReasoning}</Text>
+                                        </>
+                                    )}
+                                </ScrollView>
+
+                                {/* Action Button */}
+                                <TouchableOpacity
+                                    style={styles.modalActionBtn}
+                                    onPress={() => {
+                                        toggleTaskStatus(selectedTask);
+                                        setSelectedTask(null);
+                                    }}
+                                >
+                                    <Text style={styles.modalActionText}>
+                                        {selectedTask.status === 'COMPLETED' ? 'Mark Incomplete' : 'Mark Complete'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -859,6 +947,10 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
         paddingRight: spacing.lg,
     },
+    goalsScrollContentSingle: {
+        paddingBottom: 10,
+        flex: 1,
+    },
     goalCardShadow: {
         marginRight: spacing.md,
         shadowColor: '#000',
@@ -867,8 +959,23 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 10,
     },
+    goalCardShadowFull: {
+        flex: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 10,
+    },
     goalCard: {
         width: SCREEN_WIDTH * 0.65,
+        minHeight: 160,
+        borderRadius: 20,
+        padding: spacing.lg,
+        overflow: 'hidden',
+    },
+    goalCardFull: {
+        width: '100%',
         minHeight: 160,
         borderRadius: 20,
         padding: spacing.lg,
@@ -951,6 +1058,83 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 
+    // Task Detail Modal
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: spacing.lg,
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: spacing.lg,
+        width: '100%',
+        maxWidth: 400,
+        maxHeight: '80%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+        elevation: 15,
+    },
+    modalCloseBtn: {
+        position: 'absolute',
+        top: spacing.sm,
+        right: spacing.sm,
+        padding: spacing.xs,
+        zIndex: 1,
+    },
+    modalTitle: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: typography.fontWeight.bold as any,
+        color: colors.text.primary,
+        textAlign: 'center',
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+        paddingHorizontal: spacing.xl,
+    },
+    modalMeta: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.sm,
+    },
+    modalGoal: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.md,
+    },
+    modalDescScroll: {
+        maxHeight: 300,
+        marginBottom: spacing.lg,
+    },
+    modalDesc: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        lineHeight: 22,
+        textAlign: 'left',
+    },
+    modalTipsLabel: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.semibold as any,
+        color: colors.text.primary,
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+    },
+    modalActionBtn: {
+        backgroundColor: colors.primary.main,
+        paddingVertical: spacing.sm + 2,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    modalActionText: {
+        fontSize: typography.fontSize.base,
+        fontWeight: typography.fontWeight.semibold as any,
+        color: '#fff',
+    },
 
 });
 
