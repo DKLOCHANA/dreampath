@@ -10,8 +10,6 @@ import {
     TouchableOpacity,
     Dimensions,
     Modal,
-    TextInput,
-    KeyboardAvoidingView,
     Platform,
     Animated,
 } from 'react-native';
@@ -22,15 +20,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
-import { Goal, GoalCategory, GoalPriority, GoalStatus } from '@/domain/entities/Goal';
-import { getGoalsLocally, getTasksLocally, saveGoalLocally, deleteGoalLocally, USE_LOCAL_DATA } from '@/data';
+import { Goal, GoalCategory, GoalPriority } from '@/domain/entities/Goal';
+import { getGoalsLocally, getTasksLocally, deleteGoalLocally, USE_LOCAL_DATA } from '@/data';
 import { Task } from '@/domain/entities/Task';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { GoalWizard, GoalWizardData } from '@/presentation/components/goal/GoalWizard';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.28; // ~1/4 of screen
@@ -149,199 +147,23 @@ const getPriorityColor = (priority: GoalPriority): string => {
     }
 };
 
-// Goal categories with labels
-const GOAL_CATEGORIES: { value: GoalCategory; label: string; icon: keyof typeof Ionicons.glyphMap; description: string }[] = [
-    { value: 'CAREER', label: 'Career', icon: 'briefcase', description: 'Job, business, professional growth' },
-    { value: 'FINANCIAL', label: 'Financial', icon: 'wallet', description: 'Savings, investments, income' },
-    { value: 'HEALTH', label: 'Health & Fitness', icon: 'fitness', description: 'Fitness, wellness, habits' },
-    { value: 'EDUCATION', label: 'Education', icon: 'book', description: 'Learning, skills, certifications' },
-    { value: 'PERSONAL', label: 'Personal Growth', icon: 'leaf', description: 'Self-improvement, hobbies' },
-    { value: 'RELATIONSHIP', label: 'Relationships', icon: 'heart', description: 'Family, friends, social' },
-    { value: 'OTHER', label: 'Other', icon: 'flag', description: 'Anything else' },
-];
-
-const TIME_OPTIONS = [
-    { value: '1', label: '< 1 hour' },
-    { value: '2', label: '1-2 hours' },
-    { value: '3', label: '2-3 hours' },
-    { value: '4', label: '3-4 hours' },
-    { value: '5', label: '4+ hours' },
-];
-
-const EXPERIENCE_LEVELS = [
-    { value: 'beginner', icon: 'leaf-outline' as keyof typeof Ionicons.glyphMap, label: 'Beginner', description: 'Just starting out' },
-    { value: 'intermediate', icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap, label: 'Some Experience', description: 'Tried before but not consistent' },
-    { value: 'advanced', icon: 'rocket-outline' as keyof typeof Ionicons.glyphMap, label: 'Experienced', description: 'Done this before, want to level up' },
-];
-
-const COMMON_CHALLENGES = [
-    'Staying motivated',
-    'Finding time',
-    'Lack of knowledge',
-    'Procrastination',
-    'No accountability',
-    'Overwhelmed',
-    'Fear of failure',
-    'Financial constraints',
-];
-
 export const GoalsScreen: React.FC = () => {
     const user = useAuthStore((state) => state.user);
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Add Goal Multi-Step Wizard State
+    // Add Goal Modal State - Now using shared GoalWizard
     const [showAddGoal, setShowAddGoal] = useState(false);
-    const [currentStep, setCurrentStep] = useState(1);
-    const TOTAL_STEPS = 4;
 
-    // Step 1: Goal Details
-    const [newGoalTitle, setNewGoalTitle] = useState('');
-    const [newGoalDescription, setNewGoalDescription] = useState('');
-    const [newGoalCategory, setNewGoalCategory] = useState<GoalCategory | ''>('');
-
-    // Step 2: Timeline
-    const [newGoalPriority, setNewGoalPriority] = useState<GoalPriority>('MEDIUM');
-    const [newGoalStartDate, setNewGoalStartDate] = useState(new Date());
-    const [newGoalTargetDate, setNewGoalTargetDate] = useState(() => {
-        const date = new Date();
-        date.setMonth(date.getMonth() + 3);
-        return date;
-    });
-    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-    const [showTargetDatePicker, setShowTargetDatePicker] = useState(false);
-
-    // Step 3: Time & Resources
-    const [dailyHours, setDailyHours] = useState('');
-    const [monthlyBudget, setMonthlyBudget] = useState('');
-
-    // Step 4: Experience & Challenges
-    const [experienceLevel, setExperienceLevel] = useState('');
-    const [selectedChallenges, setSelectedChallenges] = useState<string[]>([]);
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [stepErrors, setStepErrors] = useState<{ [key: string]: string }>({});
-
-    // Reset form
-    const resetForm = () => {
-        setCurrentStep(1);
-        setNewGoalTitle('');
-        setNewGoalDescription('');
-        setNewGoalCategory('');
-        setNewGoalPriority('MEDIUM');
-        setNewGoalStartDate(new Date());
-        const targetDate = new Date();
-        targetDate.setMonth(targetDate.getMonth() + 3);
-        setNewGoalTargetDate(targetDate);
-        setDailyHours('');
-        setMonthlyBudget('');
-        setExperienceLevel('');
-        setSelectedChallenges([]);
-        setStepErrors({});
-    };
-
-    // Toggle challenge selection
-    const toggleChallenge = (challenge: string) => {
-        setSelectedChallenges((prev) =>
-            prev.includes(challenge)
-                ? prev.filter((c) => c !== challenge)
-                : [...prev, challenge]
-        );
-    };
-
-    // Validate current step
-    const validateStep = (): boolean => {
-        const errors: { [key: string]: string } = {};
-
-        if (currentStep === 1) {
-            if (!newGoalCategory) {
-                errors.category = 'Please select a category';
-            }
-            if (!newGoalTitle.trim()) {
-                errors.title = 'Please enter your goal';
-            }
-        } else if (currentStep === 3) {
-            if (!dailyHours) {
-                errors.dailyHours = 'Please select available time';
-            }
-        } else if (currentStep === 4) {
-            if (!experienceLevel) {
-                errors.experience = 'Please select your experience level';
-            }
-        }
-
-        setStepErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    // Handle next step
-    const handleNextStep = () => {
-        if (validateStep()) {
-            if (currentStep < TOTAL_STEPS) {
-                setCurrentStep(currentStep + 1);
-            } else {
-                handleAddGoal();
-            }
-        }
-    };
-
-    // Handle previous step
-    const handlePrevStep = () => {
-        if (currentStep > 1) {
-            setCurrentStep(currentStep - 1);
-            setStepErrors({});
-        }
-    };
-
-    // Handle adding a new goal
-    const handleAddGoal = async () => {
-        if (!validateStep()) return;
-
-        setIsSubmitting(true);
-
-        try {
-            const newGoal: Goal = {
-                id: `goal_${Date.now()}`,
-                userId: user?.id || 'local_user',
-                title: newGoalTitle.trim(),
-                description: newGoalDescription.trim(),
-                category: newGoalCategory as GoalCategory,
-                priority: newGoalPriority,
-                status: 'ACTIVE' as GoalStatus,
-                startDate: newGoalStartDate,
-                targetDate: newGoalTargetDate,
-                milestones: [],
-                tags: [
-                    experienceLevel,
-                    ...selectedChallenges.slice(0, 3),
-                ].filter(Boolean),
-                metrics: {
-                    totalTasks: 0,
-                    completedTasks: 0,
-                    currentStreak: 0,
-                    longestStreak: 0,
-                    completionPercentage: 0,
-                },
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
-
-            await saveGoalLocally(newGoal);
-            await loadData();
-            setShowAddGoal(false);
-            resetForm();
-            console.log('[GoalsScreen] New goal added:', newGoal.title);
-        } catch (error) {
-            console.error('[GoalsScreen] Error adding goal:', error);
-            Alert.alert('Error', 'Failed to add goal. Please try again.');
-        } finally {
-            setIsSubmitting(false);
-        }
+    // Handle wizard completion
+    const handleWizardComplete = async (data: GoalWizardData, goal?: Goal) => {
+        console.log('[GoalsScreen] Goal created via wizard:', goal?.title);
+        setShowAddGoal(false);
+        await loadData();
     };
 
     const handleCreateGoal = () => {
-        resetForm();
         setShowAddGoal(true);
     };
 
@@ -624,17 +446,14 @@ export const GoalsScreen: React.FC = () => {
                 )}
             </ScrollView>
 
-            {/* Add Goal Bottom Sheet Modal - Multi-Step Wizard */}
+            {/* Add Goal Bottom Sheet Modal - Using Shared GoalWizard */}
             <Modal
                 visible={showAddGoal}
                 transparent
                 animationType="slide"
                 onRequestClose={() => setShowAddGoal(false)}
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.bottomSheetOverlay}
-                >
+                <View style={styles.bottomSheetOverlay}>
                     <TouchableOpacity
                         style={styles.bottomSheetBackdrop}
                         activeOpacity={1}
@@ -644,419 +463,15 @@ export const GoalsScreen: React.FC = () => {
                         {/* Handle */}
                         <View style={styles.bottomSheetHandle} />
 
-                        {/* Header with Progress */}
-                        <View style={styles.bottomSheetHeader}>
-                            <View style={styles.wizardHeaderLeft}>
-                                {currentStep > 1 && (
-                                    <TouchableOpacity onPress={handlePrevStep} style={styles.backButton}>
-                                        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-                                    </TouchableOpacity>
-                                )}
-                                <Text style={styles.bottomSheetTitle}>
-                                    {currentStep === 1 && "What's your goal?"}
-                                    {currentStep === 2 && "Set your timeline"}
-                                    {currentStep === 3 && "Time & resources"}
-                                    {currentStep === 4 && "Your experience"}
-                                </Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowAddGoal(false)}>
-                                <Ionicons name="close" size={24} color={colors.text.secondary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Progress Bar */}
-                        <View style={styles.wizardProgressContainer}>
-                            <View style={styles.wizardProgressBar}>
-                                <View style={[styles.wizardProgressFill, { width: `${(currentStep / TOTAL_STEPS) * 100}%` }]} />
-                            </View>
-                            <Text style={styles.wizardProgressText}>Step {currentStep} of {TOTAL_STEPS}</Text>
-                        </View>
-
-                        <ScrollView
-                            style={styles.bottomSheetContent}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            {/* Step 1: Goal Details */}
-                            {currentStep === 1 && (
-                                <>
-                                    <Text style={styles.stepSubtitle}>Choose a category and describe what you want to achieve</Text>
-
-                                    {/* Category Grid */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Category *</Text>
-                                        <View style={styles.categoryGrid}>
-                                            {GOAL_CATEGORIES.map((cat) => (
-                                                <TouchableOpacity
-                                                    key={cat.value}
-                                                    style={[
-                                                        styles.categoryCard,
-                                                        newGoalCategory === cat.value && styles.categoryCardSelected,
-                                                    ]}
-                                                    onPress={() => {
-                                                        setNewGoalCategory(cat.value);
-                                                        setStepErrors({ ...stepErrors, category: '' });
-                                                    }}
-                                                >
-                                                    <Ionicons
-                                                        name={cat.icon}
-                                                        size={24}
-                                                        color={newGoalCategory === cat.value ? colors.primary.main : colors.text.secondary}
-                                                    />
-                                                    <Text style={[
-                                                        styles.categoryCardLabel,
-                                                        newGoalCategory === cat.value && styles.categoryCardLabelSelected,
-                                                    ]}>
-                                                        {cat.label}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                        {stepErrors.category && (
-                                            <Text style={styles.errorText}>{stepErrors.category}</Text>
-                                        )}
-                                    </View>
-
-                                    {/* Goal Title */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Your Goal *</Text>
-                                        <TextInput
-                                            style={styles.formInput}
-                                            value={newGoalTitle}
-                                            onChangeText={(text) => {
-                                                setNewGoalTitle(text);
-                                                setStepErrors({ ...stepErrors, title: '' });
-                                            }}
-                                            placeholder="e.g., Save $10,000 for emergency fund"
-                                            placeholderTextColor={colors.text.tertiary}
-                                        />
-                                        {stepErrors.title && (
-                                            <Text style={styles.errorText}>{stepErrors.title}</Text>
-                                        )}
-                                    </View>
-
-                                    {/* Description */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Description (optional)</Text>
-                                        <TextInput
-                                            style={[styles.formInput, styles.formTextArea]}
-                                            value={newGoalDescription}
-                                            onChangeText={setNewGoalDescription}
-                                            placeholder="Add more details about what success looks like..."
-                                            placeholderTextColor={colors.text.tertiary}
-                                            multiline
-                                            numberOfLines={3}
-                                        />
-                                    </View>
-                                </>
-                            )}
-
-                            {/* Step 2: Timeline */}
-                            {currentStep === 2 && (
-                                <>
-                                    <Text style={styles.stepSubtitle}>Set realistic deadlines for your goal</Text>
-
-                                    {/* Start Date */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Start Date</Text>
-                                        <TouchableOpacity
-                                            style={styles.formSelect}
-                                            onPress={() => setShowStartDatePicker(true)}
-                                        >
-                                            <View style={styles.formSelectContent}>
-                                                <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
-                                                <Text style={styles.formSelectText}>
-                                                    {newGoalStartDate.toLocaleDateString('en-US', {
-                                                        weekday: 'short',
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        year: 'numeric'
-                                                    })}
-                                                </Text>
-                                            </View>
-                                            <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {/* Start Date Picker */}
-                                    {Platform.OS === 'ios' ? (
-                                        <Modal visible={showStartDatePicker} transparent animationType="slide">
-                                            <View style={styles.pickerModal}>
-                                                <View style={styles.pickerModalContent}>
-                                                    <View style={styles.pickerModalHeader}>
-                                                        <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
-                                                            <Text style={styles.pickerModalCancel}>Cancel</Text>
-                                                        </TouchableOpacity>
-                                                        <Text style={styles.pickerModalTitle}>Start Date</Text>
-                                                        <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
-                                                            <Text style={styles.pickerModalDone}>Done</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                    <DateTimePicker
-                                                        value={newGoalStartDate}
-                                                        mode="date"
-                                                        display="spinner"
-                                                        onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                                            if (date) setNewGoalStartDate(date);
-                                                        }}
-                                                        style={{ height: 200, backgroundColor: colors.background.primary }}
-                                                        themeVariant="light"
-                                                    />
-                                                </View>
-                                            </View>
-                                        </Modal>
-                                    ) : (
-                                        showStartDatePicker && (
-                                            <DateTimePicker
-                                                value={newGoalStartDate}
-                                                mode="date"
-                                                display="default"
-                                                onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                                    setShowStartDatePicker(false);
-                                                    if (date) setNewGoalStartDate(date);
-                                                }}
-                                            />
-                                        )
-                                    )}
-
-                                    {/* Target Date */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Target Date *</Text>
-                                        <TouchableOpacity
-                                            style={styles.formSelect}
-                                            onPress={() => setShowTargetDatePicker(true)}
-                                        >
-                                            <View style={styles.formSelectContent}>
-                                                <Ionicons name="flag-outline" size={18} color={colors.primary.main} />
-                                                <Text style={styles.formSelectText}>
-                                                    {newGoalTargetDate.toLocaleDateString('en-US', {
-                                                        weekday: 'short',
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        year: 'numeric'
-                                                    })}
-                                                </Text>
-                                            </View>
-                                            <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {/* Target Date Picker */}
-                                    {Platform.OS === 'ios' ? (
-                                        <Modal visible={showTargetDatePicker} transparent animationType="slide">
-                                            <View style={styles.pickerModal}>
-                                                <View style={styles.pickerModalContent}>
-                                                    <View style={styles.pickerModalHeader}>
-                                                        <TouchableOpacity onPress={() => setShowTargetDatePicker(false)}>
-                                                            <Text style={styles.pickerModalCancel}>Cancel</Text>
-                                                        </TouchableOpacity>
-                                                        <Text style={styles.pickerModalTitle}>Target Date</Text>
-                                                        <TouchableOpacity onPress={() => setShowTargetDatePicker(false)}>
-                                                            <Text style={styles.pickerModalDone}>Done</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                    <DateTimePicker
-                                                        value={newGoalTargetDate}
-                                                        mode="date"
-                                                        display="spinner"
-                                                        minimumDate={newGoalStartDate}
-                                                        onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                                            if (date) setNewGoalTargetDate(date);
-                                                        }}
-                                                        style={{ height: 200, backgroundColor: colors.background.primary }}
-                                                        themeVariant="light"
-                                                    />
-                                                </View>
-                                            </View>
-                                        </Modal>
-                                    ) : (
-                                        showTargetDatePicker && (
-                                            <DateTimePicker
-                                                value={newGoalTargetDate}
-                                                mode="date"
-                                                display="default"
-                                                minimumDate={newGoalStartDate}
-                                                onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                                    setShowTargetDatePicker(false);
-                                                    if (date) setNewGoalTargetDate(date);
-                                                }}
-                                            />
-                                        )
-                                    )}
-
-                                    {/* Priority */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Priority</Text>
-                                        <View style={styles.segmentedControl}>
-                                            {(['LOW', 'MEDIUM', 'HIGH'] as GoalPriority[]).map((priority) => (
-                                                <TouchableOpacity
-                                                    key={priority}
-                                                    style={[
-                                                        styles.segmentedOption,
-                                                        newGoalPriority === priority && styles.segmentedOptionActive,
-                                                        newGoalPriority === priority && {
-                                                            backgroundColor: getPriorityColor(priority) + '20',
-                                                            borderColor: getPriorityColor(priority),
-                                                        }
-                                                    ]}
-                                                    onPress={() => setNewGoalPriority(priority)}
-                                                >
-                                                    <Text style={[
-                                                        styles.segmentedOptionText,
-                                                        newGoalPriority === priority && { color: getPriorityColor(priority) }
-                                                    ]}>
-                                                        {priority}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </View>
-                                </>
-                            )}
-
-                            {/* Step 3: Time & Resources */}
-                            {currentStep === 3 && (
-                                <>
-                                    <Text style={styles.stepSubtitle}>Help us create realistic plans that fit your life</Text>
-
-                                    {/* Daily Time */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Daily time for this goal *</Text>
-                                        <Text style={styles.formHint}>How much time can you dedicate each day?</Text>
-                                        <View style={styles.timeOptionsGrid}>
-                                            {TIME_OPTIONS.map((option) => (
-                                                <TouchableOpacity
-                                                    key={option.value}
-                                                    style={[
-                                                        styles.timeOptionCard,
-                                                        dailyHours === option.value && styles.timeOptionCardSelected,
-                                                    ]}
-                                                    onPress={() => {
-                                                        setDailyHours(option.value);
-                                                        setStepErrors({ ...stepErrors, dailyHours: '' });
-                                                    }}
-                                                >
-                                                    <Text style={[
-                                                        styles.timeOptionLabel,
-                                                        dailyHours === option.value && styles.timeOptionLabelSelected,
-                                                    ]}>
-                                                        {option.label}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                        {stepErrors.dailyHours && (
-                                            <Text style={styles.errorText}>{stepErrors.dailyHours}</Text>
-                                        )}
-                                    </View>
-
-                                    {/* Monthly Budget */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Monthly budget (optional)</Text>
-                                        <TextInput
-                                            style={styles.formInput}
-                                            value={monthlyBudget}
-                                            onChangeText={(text) => setMonthlyBudget(text.replace(/[^0-9]/g, ''))}
-                                            placeholder="$ Amount you can invest monthly"
-                                            placeholderTextColor={colors.text.tertiary}
-                                            keyboardType="number-pad"
-                                        />
-                                    </View>
-                                </>
-                            )}
-
-                            {/* Step 4: Experience & Challenges */}
-                            {currentStep === 4 && (
-                                <>
-                                    <Text style={styles.stepSubtitle}>Help us understand where you're starting from</Text>
-
-                                    {/* Experience Level */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Your experience with this goal *</Text>
-                                        <View style={styles.experienceGrid}>
-                                            {EXPERIENCE_LEVELS.map((level) => (
-                                                <TouchableOpacity
-                                                    key={level.value}
-                                                    style={[
-                                                        styles.experienceCard,
-                                                        experienceLevel === level.value && styles.experienceCardSelected,
-                                                    ]}
-                                                    onPress={() => {
-                                                        setExperienceLevel(level.value);
-                                                        setStepErrors({ ...stepErrors, experience: '' });
-                                                    }}
-                                                >
-                                                    <Ionicons
-                                                        name={level.icon}
-                                                        size={28}
-                                                        color={experienceLevel === level.value ? colors.primary.main : colors.text.secondary}
-                                                    />
-                                                    <Text style={[
-                                                        styles.experienceLabel,
-                                                        experienceLevel === level.value && styles.experienceLabelSelected,
-                                                    ]}>
-                                                        {level.label}
-                                                    </Text>
-                                                    <Text style={styles.experienceDesc}>{level.description}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                        {stepErrors.experience && (
-                                            <Text style={styles.errorText}>{stepErrors.experience}</Text>
-                                        )}
-                                    </View>
-
-                                    {/* Challenges */}
-                                    <View style={styles.formGroup}>
-                                        <Text style={styles.formLabel}>Common challenges (optional)</Text>
-                                        <Text style={styles.formHint}>Select any that apply to you</Text>
-                                        <View style={styles.challengesGrid}>
-                                            {COMMON_CHALLENGES.map((challenge) => (
-                                                <TouchableOpacity
-                                                    key={challenge}
-                                                    style={[
-                                                        styles.challengeChip,
-                                                        selectedChallenges.includes(challenge) && styles.challengeChipSelected,
-                                                    ]}
-                                                    onPress={() => toggleChallenge(challenge)}
-                                                >
-                                                    <Text style={[
-                                                        styles.challengeChipText,
-                                                        selectedChallenges.includes(challenge) && styles.challengeChipTextSelected,
-                                                    ]}>
-                                                        {challenge}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </View>
-                                </>
-                            )}
-
-                            {/* Navigation Buttons */}
-                            <TouchableOpacity
-                                style={[
-                                    styles.submitButton,
-                                    isSubmitting && styles.submitButtonDisabled
-                                ]}
-                                onPress={handleNextStep}
-                                disabled={isSubmitting}
-                            >
-                                <Text style={styles.submitButtonText}>
-                                    {isSubmitting ? 'Creating...' : currentStep === TOTAL_STEPS ? 'Create Goal' : 'Continue'}
-                                </Text>
-                                {!isSubmitting && currentStep < TOTAL_STEPS && (
-                                    <Ionicons name="arrow-forward" size={20} color="#fff" />
-                                )}
-                                {currentStep === TOTAL_STEPS && !isSubmitting && (
-                                    <Ionicons name="flag" size={20} color="#fff" />
-                                )}
-                            </TouchableOpacity>
-
-                            {/* Bottom padding */}
-                            <View style={{ height: 20 }} />
-                        </ScrollView>
+                        {/* GoalWizard Component - Same as Onboarding */}
+                        <GoalWizard
+                            mode="drawer"
+                            onComplete={handleWizardComplete}
+                            onClose={() => setShowAddGoal(false)}
+                            totalSteps={5}
+                        />
                     </View>
-                </KeyboardAvoidingView>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -1349,21 +764,20 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // Bottom Sheet
+    // Bottom Sheet - Full Screen
     bottomSheetOverlay: {
         flex: 1,
-        justifyContent: 'flex-end',
     },
     bottomSheetBackdrop: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.5)',
     },
     bottomSheet: {
+        flex: 1,
         backgroundColor: colors.background.primary,
+        marginTop: Platform.OS === 'ios' ? 50 : 30,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        maxHeight: SCREEN_HEIGHT * 0.9,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     },
     bottomSheetHandle: {
         width: 40,
@@ -1372,7 +786,7 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         alignSelf: 'center',
         marginTop: spacing.sm,
-        marginBottom: spacing.sm,
+        marginBottom: spacing.xs,
     },
     bottomSheetHeader: {
         flexDirection: 'row',
@@ -1386,334 +800,6 @@ const styles = StyleSheet.create({
     bottomSheetTitle: {
         ...typography.variants.h4,
         color: colors.text.primary,
-    },
-    bottomSheetContent: {
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.lg,
-    },
-
-    // Form Styles
-    formGroup: {
-        marginBottom: spacing.lg,
-    },
-    formLabel: {
-        ...typography.variants.label,
-        color: colors.text.primary,
-        marginBottom: spacing.xs,
-    },
-    formInput: {
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.borderRadius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        ...typography.variants.body,
-        color: colors.text.primary,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-    },
-    formTextArea: {
-        minHeight: 80,
-        textAlignVertical: 'top',
-    },
-    formSelect: {
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.borderRadius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    formSelectContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        flex: 1,
-    },
-    formSelectText: {
-        ...typography.variants.body,
-        color: colors.text.primary,
-        flex: 1,
-    },
-
-    // Category Picker Dropdown
-    categoryPickerDropdown: {
-        backgroundColor: colors.background.primary,
-        borderRadius: spacing.borderRadius.md,
-        marginTop: spacing.xs,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    categoryPickerOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.light,
-    },
-    categoryPickerOptionActive: {
-        backgroundColor: colors.primary.main + '10',
-    },
-    categoryPickerOptionText: {
-        ...typography.variants.body,
-        color: colors.text.primary,
-        flex: 1,
-    },
-    categoryPickerOptionTextActive: {
-        color: colors.primary.main,
-        fontWeight: '600',
-    },
-
-    // Segmented Control
-    segmentedControl: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-    },
-    segmentedOption: {
-        flex: 1,
-        paddingVertical: spacing.sm,
-        alignItems: 'center',
-        borderRadius: spacing.borderRadius.md,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-        backgroundColor: colors.background.secondary,
-    },
-    segmentedOptionActive: {
-        borderColor: colors.primary.main,
-        backgroundColor: colors.primary.main + '10',
-    },
-    segmentedOptionText: {
-        ...typography.variants.label,
-        color: colors.text.secondary,
-    },
-
-    // Submit Button
-    submitButton: {
-        backgroundColor: colors.primary.main,
-        borderRadius: spacing.borderRadius.lg,
-        paddingVertical: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.sm,
-        marginTop: spacing.md,
-    },
-    submitButtonDisabled: {
-        backgroundColor: colors.neutral[300],
-    },
-    submitButtonText: {
-        ...typography.variants.label,
-        color: colors.text.inverse,
-        fontWeight: '600',
-    },
-
-    // Picker Modal Styles
-    pickerModal: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-    pickerModalContent: {
-        backgroundColor: colors.background.primary,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingBottom: 30,
-    },
-    pickerModalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.light,
-    },
-    pickerModalTitle: {
-        ...typography.variants.h5,
-        color: colors.text.primary,
-    },
-    pickerModalCancel: {
-        ...typography.variants.body,
-        color: colors.text.secondary,
-    },
-    pickerModalDone: {
-        ...typography.variants.body,
-        color: colors.primary.main,
-        fontWeight: '600',
-    },
-
-    // Wizard Styles
-    wizardHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    backButton: {
-        marginRight: spacing.sm,
-        padding: 4,
-    },
-    wizardProgressContainer: {
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xs,
-        paddingBottom: spacing.md,
-    },
-    wizardProgressBar: {
-        height: 4,
-        backgroundColor: colors.neutral[200],
-        borderRadius: 2,
-        marginBottom: spacing.xs,
-    },
-    wizardProgressFill: {
-        height: '100%',
-        backgroundColor: colors.primary.main,
-        borderRadius: 2,
-    },
-    wizardProgressText: {
-        ...typography.variants.caption,
-        color: colors.text.tertiary,
-        textAlign: 'right',
-    },
-    stepSubtitle: {
-        ...typography.variants.body,
-        color: colors.text.secondary,
-        marginBottom: spacing.lg,
-        lineHeight: 22,
-    },
-    formHint: {
-        ...typography.variants.caption,
-        color: colors.text.tertiary,
-        marginBottom: spacing.sm,
-    },
-    errorText: {
-        ...typography.variants.caption,
-        color: colors.error.main,
-        marginTop: spacing.xs,
-    },
-
-    // Category Grid (Step 1)
-    categoryGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-    },
-    categoryCard: {
-        width: '31%',
-        aspectRatio: 1,
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.borderRadius.lg,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: spacing.sm,
-    },
-    categoryCardSelected: {
-        borderColor: colors.primary.main,
-        backgroundColor: colors.primary.main + '10',
-    },
-    categoryCardLabel: {
-        ...typography.variants.caption,
-        color: colors.text.secondary,
-        marginTop: spacing.xs,
-        textAlign: 'center',
-    },
-    categoryCardLabelSelected: {
-        color: colors.primary.main,
-        fontWeight: '600',
-    },
-
-    // Time Options (Step 3)
-    timeOptionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-    },
-    timeOptionCard: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.borderRadius.md,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-    },
-    timeOptionCardSelected: {
-        borderColor: colors.primary.main,
-        backgroundColor: colors.primary.main + '10',
-    },
-    timeOptionLabel: {
-        ...typography.variants.label,
-        color: colors.text.secondary,
-    },
-    timeOptionLabelSelected: {
-        color: colors.primary.main,
-        fontWeight: '600',
-    },
-
-    // Experience Grid (Step 4)
-    experienceGrid: {
-        gap: spacing.sm,
-    },
-    experienceCard: {
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.borderRadius.lg,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-        padding: spacing.md,
-        alignItems: 'center',
-    },
-    experienceCardSelected: {
-        borderColor: colors.primary.main,
-        backgroundColor: colors.primary.main + '10',
-    },
-    experienceLabel: {
-        ...typography.variants.label,
-        color: colors.text.primary,
-        marginTop: spacing.xs,
-    },
-    experienceLabelSelected: {
-        color: colors.primary.main,
-        fontWeight: '600',
-    },
-    experienceDesc: {
-        ...typography.variants.caption,
-        color: colors.text.tertiary,
-        marginTop: 2,
-    },
-
-    // Challenges Grid (Step 4)
-    challengesGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-    },
-    challengeChip: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.borderRadius.full,
-        borderWidth: 1,
-        borderColor: colors.border.light,
-    },
-    challengeChipSelected: {
-        borderColor: colors.primary.main,
-        backgroundColor: colors.primary.main + '10',
-    },
-    challengeChipText: {
-        ...typography.variants.caption,
-        color: colors.text.secondary,
-    },
-    challengeChipTextSelected: {
-        color: colors.primary.main,
-        fontWeight: '600',
     },
 });
 

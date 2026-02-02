@@ -1,20 +1,26 @@
 // src/presentation/navigation/MainNavigator.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MainTabParamList } from './types';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { MainTabParamList, MainStackParamList } from './types';
 import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { Ionicons } from '@expo/vector-icons';
+import { getGoalsLocally } from '@/data';
+import { LoadingScreen } from '@/presentation/components/common';
 
 // Screens
 import HomeScreen from '@/presentation/screens/main/HomeScreen';
 import GoalsScreen from '@/presentation/screens/main/GoalsScreen';
 import TasksScreen from '@/presentation/screens/main/TasksScreen';
 import ProfileScreen from '@/presentation/screens/main/ProfileScreen';
+import FirstGoalScreen from '@/presentation/screens/main/FirstGoalScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const Stack = createNativeStackNavigator<MainStackParamList>();
 
-export const MainNavigator: React.FC = () => {
+// Tab Navigator Component
+const TabNavigator: React.FC = () => {
     return (
         <Tab.Navigator
             screenOptions={{
@@ -75,6 +81,47 @@ export const MainNavigator: React.FC = () => {
                 }}
             />
         </Tab.Navigator>
+    );
+};
+
+// Main Navigator with goal check
+export const MainNavigator: React.FC = () => {
+    const [hasGoals, setHasGoals] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const checkGoals = async () => {
+            try {
+                const goals = await getGoalsLocally();
+                setHasGoals(goals.length > 0);
+            } catch (error) {
+                console.error('[MainNavigator] Error checking goals:', error);
+                setHasGoals(false);
+            }
+        };
+        checkGoals();
+    }, []);
+
+    // Show loading while checking goals
+    if (hasGoals === null) {
+        return <LoadingScreen message="Loading your goals..." />;
+    }
+
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            {!hasGoals ? (
+                // No goals - show FirstGoal wizard first
+                <>
+                    <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
+                    <Stack.Screen name="Tabs" component={TabNavigator} />
+                </>
+            ) : (
+                // Has goals - go directly to tabs
+                <>
+                    <Stack.Screen name="Tabs" component={TabNavigator} />
+                    <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
+                </>
+            )}
+        </Stack.Navigator>
     );
 };
 

@@ -10,15 +10,6 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
-// Onboarding Stack
-export type OnboardingStackParamList = {
-  OnboardingIntro: undefined;
-  OnboardingGoal: undefined;
-  OnboardingPersonal: undefined;
-  OnboardingSkills: undefined;
-  OnboardingComplete: undefined;
-};
-
 // Main Tab Navigator
 export type MainTabParamList = {
   Home: undefined;
@@ -51,8 +42,13 @@ export type ProfileStackParamList = {
 // Root Navigator
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
-  Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
-  Main: NavigatorScreenParams<MainTabParamList>;
+  Main: NavigatorScreenParams<MainStackParamList>;
+};
+
+// Main Stack (wraps tabs, includes FirstGoal screen)
+export type MainStackParamList = {
+  FirstGoal: undefined;
+  Tabs: NavigatorScreenParams<MainTabParamList>;
 };
 
 // Declare global types for navigation

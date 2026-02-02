@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { RootStackParamList } from './types';
 import { AuthNavigator } from './AuthNavigator';
-import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainNavigator } from './MainNavigator';
 import { LoadingScreen } from '@/presentation/components/common';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
@@ -36,14 +35,11 @@ export const RootNavigator: React.FC = () => {
         return <LoadingScreen message="Starting DreamPath..." />;
     }
 
-    const needsOnboarding = isAuthenticated && user && !user.onboardingCompleted;
-
+    // Simple logic: Authenticated → Main, Not authenticated → Auth (Welcome)
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             {!isAuthenticated ? (
                 <Stack.Screen name="Auth" component={AuthNavigator} />
-            ) : needsOnboarding ? (
-                <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
             ) : (
                 <Stack.Screen name="Main" component={MainNavigator} />
             )}

@@ -1,9 +1,7 @@
 // src/data/index.ts
-// Export all data services - local (for development) and Firebase (for production)
+// Export all data services - local storage and Firebase
 
-// Local data services (development/offline mode)
-export * from './mockTasks';
-export * from './mockGoals';
+// Local data services (offline storage)
 export * from './localDataService';
 
 // Firebase services (production mode)
