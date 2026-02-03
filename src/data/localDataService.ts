@@ -11,6 +11,9 @@ const STORAGE_KEYS = {
     ONBOARDING_DATA: '@dreampath_onboarding_data',
     GOALS: '@dreampath_goals',
     TASKS: '@dreampath_tasks',
+    PROFILE_IMAGE: '@dreampath_profile_image',
+    AI_INSIGHTS: '@dreampath_ai_insights',
+    AI_INSIGHTS_TIMESTAMP: '@dreampath_ai_insights_timestamp',
 };
 
 // ============================================
@@ -317,6 +320,9 @@ export const clearAllLocalData = async (): Promise<void> => {
             STORAGE_KEYS.ONBOARDING_DATA,
             STORAGE_KEYS.GOALS,
             STORAGE_KEYS.TASKS,
+            STORAGE_KEYS.PROFILE_IMAGE,
+            STORAGE_KEYS.AI_INSIGHTS,
+            STORAGE_KEYS.AI_INSIGHTS_TIMESTAMP,
         ]);
         console.log('[LocalDataService] All local data cleared');
     } catch (error) {

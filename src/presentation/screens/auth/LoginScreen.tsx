@@ -52,6 +52,7 @@ export const LoginScreen: React.FC = () => {
     };
 
     const handleLogin = async () => {
+        if (loading) return; // Prevent double-tap
         if (!validateForm()) return;
 
         setLoading(true);

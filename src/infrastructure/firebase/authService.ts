@@ -92,7 +92,7 @@ export const signInWithEmail = async (email: string, password: string): Promise<
         console.log('[AuthService] User signed in:', user.email);
         return user;
     } catch (error: any) {
-        console.error('[AuthService] Sign in error:', error);
+        // Don't log error to console to avoid red error overlay in dev mode
         throw new Error(getAuthErrorMessage(error.code));
     }
 };

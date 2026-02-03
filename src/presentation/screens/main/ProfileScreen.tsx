@@ -30,7 +30,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
-import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA } from '@/data';
+import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA, clearAllLocalData } from '@/data';
 
 const PROFILE_IMAGE_KEY = '@dreampath_profile_image';
 
@@ -328,6 +328,8 @@ export const ProfileScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            // Clear all local data before signing out
+                            await clearAllLocalData();
                             await signOut(auth);
                             logout();
                         } catch (error) {
