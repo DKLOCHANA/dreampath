@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Button, Input } from '@/presentation/components/common';
 import { colors } from '@/presentation/theme/colors';
@@ -65,7 +66,9 @@ export const ForgotPasswordScreen: React.FC = () => {
 
                 <View style={styles.content}>
                     <View style={styles.successContainer}>
-                        <Text style={styles.successEmoji}>📧</Text>
+                        <View style={styles.successIconContainer}>
+                            <Ionicons name="mail-outline" size={48} color={colors.primary.main} />
+                        </View>
                         <Text style={styles.successTitle}>Check Your Email</Text>
                         <Text style={styles.successMessage}>
                             We've sent password reset instructions to {email}
@@ -202,8 +205,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    successEmoji: {
-        fontSize: 64,
+    successIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: colors.primary.main + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
         marginBottom: spacing.lg,
     },
     successTitle: {

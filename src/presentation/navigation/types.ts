@@ -1,13 +1,25 @@
 // src/presentation/navigation/types.ts
 
 import { NavigatorScreenParams } from '@react-navigation/native';
+import { Answer } from '@/presentation/screens/onboarding/onboardingData';
 
 // Auth Stack
 export type AuthStackParamList = {
-  Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+};
+
+// Onboarding Stack
+export type OnboardingStackParamList = {
+  OnboardingWelcome: undefined;
+  Question: { questionIndex: number };
+  Report: { questionIndex: number; selectedAnswer: Answer };
+  Report1: { questionIndex: number; selectedAnswer: Answer };
+  Report2: { questionIndex: number; selectedAnswer: Answer };
+  Report3: { questionIndex: number; selectedAnswer: Answer };
+  Report4: { questionIndex: number; selectedAnswer: Answer };
+  FinalWelcome: undefined;
 };
 
 // Main Tab Navigator
@@ -43,6 +55,7 @@ export type ProfileStackParamList = {
 // Root Navigator
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
+  Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
   Main: NavigatorScreenParams<MainStackParamList>;
 };
 

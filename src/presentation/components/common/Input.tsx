@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.border.light,
         borderRadius: spacing.borderRadius.lg,
-        minHeight: 52,
+        minHeight: 56,
     },
 
     inputFocused: {
@@ -138,10 +138,12 @@ const styles = StyleSheet.create({
 
     input: {
         flex: 1,
-        ...typography.variants.body,
+        fontSize: 16,
+        fontWeight: '400' as const,
         color: colors.text.primary,
         paddingHorizontal: spacing.inputPaddingHorizontal,
         paddingVertical: spacing.inputPaddingVertical,
+        includeFontPadding: true,
     },
 
     inputWithLeftIcon: {
