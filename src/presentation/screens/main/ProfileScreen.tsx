@@ -4,12 +4,13 @@ import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
     TouchableOpacity,
     Alert,
     Switch,
     Platform,
     Image,
+    ActionSheetIOS,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from 'firebase/auth';
@@ -19,6 +20,9 @@ import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainStackParamList } from '@/presentation/navigation/types';
 
 import { Card, Button } from '@/presentation/components/common';
 import { colors } from '@/presentation/theme/colors';
@@ -31,6 +35,7 @@ import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA } from '@/data';
 const PROFILE_IMAGE_KEY = '@dreampath_profile_image';
 
 export const ProfileScreen: React.FC = () => {
+    const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
     const { user, logout, updateUserProfile } = useAuthStore();
     const [displayName, setDisplayName] = useState(user?.displayName || 'User');
     const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -69,39 +74,149 @@ export const ProfileScreen: React.FC = () => {
         checkNotificationPermission();
     }, []);
 
-    // Pick and save profile image
-    const pickImage = async () => {
-        // Request permission
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-        if (status !== 'granted') {
-            Alert.alert(
-                'Permission Required',
-                'Please allow access to your photo library to upload a profile picture.',
-                [{ text: 'OK' }]
-            );
-            return;
+    // Save base64 image directly to AsyncStorage
+    const saveImageToStorage = async (base64: string): Promise<boolean> => {
+        try {
+            const imageUri = `data:image/jpeg;base64,${base64}`;
+            await AsyncStorage.setItem(PROFILE_IMAGE_KEY, imageUri);
+            return true;
+        } catch (error) {
+            console.error('Error saving image:', error);
+            return false;
         }
+    };
 
-        // Launch image picker
+    // Handle image selection from library
+    const selectFromLibrary = async () => {
+        // Check current permission status first
+        const { status: existingStatus } = await ImagePicker.getMediaLibraryPermissionsAsync();
+
+        if (existingStatus !== 'granted') {
+            // Show explanation before requesting permission (App Store guideline)
+            Alert.alert(
+                'Photo Access',
+                'DreamPath would like to access your photo library to let you choose a profile picture. Your photos are only used locally on this device.',
+                [
+                    { text: 'Not Now', style: 'cancel' },
+                    {
+                        text: 'Continue',
+                        onPress: async () => {
+                            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                            if (status === 'granted') {
+                                await launchImageLibrary();
+                            } else {
+                                showPermissionDeniedAlert();
+                            }
+                        },
+                    },
+                ]
+            );
+        } else {
+            await launchImageLibrary();
+        }
+    };
+
+    // Handle taking a photo with camera
+    const takePhoto = async () => {
+        const { status: existingStatus } = await ImagePicker.getCameraPermissionsAsync();
+
+        if (existingStatus !== 'granted') {
+            Alert.alert(
+                'Camera Access',
+                'DreamPath would like to access your camera to take a profile picture.',
+                [
+                    { text: 'Not Now', style: 'cancel' },
+                    {
+                        text: 'Continue',
+                        onPress: async () => {
+                            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                            if (status === 'granted') {
+                                await launchCamera();
+                            } else {
+                                showPermissionDeniedAlert();
+                            }
+                        },
+                    },
+                ]
+            );
+        } else {
+            await launchCamera();
+        }
+    };
+
+    // Show permission denied alert with settings option
+    const showPermissionDeniedAlert = () => {
+        Alert.alert(
+            'Permission Required',
+            'To change your profile picture, please allow photo access in Settings.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Open Settings',
+                    onPress: () => {
+                        Linking.openURL('app-settings:');
+                    },
+                },
+            ]
+        );
+    };
+
+    // Launch the image library picker
+    const launchImageLibrary = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.5,
+            base64: true,
+            allowsMultipleSelection: false,
         });
 
-        if (!result.canceled && result.assets[0]) {
-            const imageUri = result.assets[0].uri;
-            setProfileImage(imageUri);
-
-            // Save to AsyncStorage
-            try {
-                await AsyncStorage.setItem(PROFILE_IMAGE_KEY, imageUri);
-            } catch (error) {
-                console.error('Error saving profile image:', error);
-            }
+        if (!result.canceled && result.assets[0]?.base64) {
+            await processSelectedImage(result.assets[0].base64);
         }
+    };
+
+    // Launch the camera
+    const launchCamera = async () => {
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            base64: true,
+        });
+
+        if (!result.canceled && result.assets[0]?.base64) {
+            await processSelectedImage(result.assets[0].base64);
+        }
+    };
+
+    // Process and save the selected image (base64)
+    const processSelectedImage = async (base64: string) => {
+        const success = await saveImageToStorage(base64);
+        if (success) {
+            const imageUri = `data:image/jpeg;base64,${base64}`;
+            setProfileImage(imageUri);
+        } else {
+            Alert.alert('Error', 'Failed to save the image. Please try again.');
+        }
+    };
+
+    // Pick image with action sheet for source selection (iOS)
+    const pickImage = async () => {
+        ActionSheetIOS.showActionSheetWithOptions(
+            {
+                options: ['Cancel', 'Take Photo', 'Choose from Library'],
+                cancelButtonIndex: 0,
+            },
+            async (buttonIndex) => {
+                if (buttonIndex === 1) {
+                    await takePhoto();
+                } else if (buttonIndex === 2) {
+                    await selectFromLibrary();
+                }
+            }
+        );
     };
 
     // Edit name with Alert prompt
@@ -237,10 +352,7 @@ export const ProfileScreen: React.FC = () => {
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark" />
 
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.contentContainer}>
                 {/* Profile Header with Profile Picture */}
                 <View style={styles.profileHeader}>
                     <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
@@ -315,57 +427,24 @@ export const ProfileScreen: React.FC = () => {
                         <View style={styles.premiumButtonShadow}>
                             <TouchableOpacity
                                 style={styles.premiumButton}
-                                onPress={() => Alert.alert('Premium', 'Premium subscription coming soon!')}
+                                onPress={() => navigation.navigate('Paywall')}
                             >
                                 <Text style={styles.premiumButtonText}>Upgrade</Text>
                             </TouchableOpacity>
                         </View>
                     </LinearGradient>
                 </View>
+            </View>
 
-                {/* Menu Items */}
-                <View style={styles.menuCardShadow}>
-                    <Card style={styles.menuCard}>
-                        <View style={styles.menuItem}>
-                            <Ionicons name="notifications-outline" size={22} color={colors.text.secondary} style={styles.menuIcon} />
-                            <Text style={styles.menuTitle}>Notifications</Text>
-                            <Switch
-                                value={notificationsEnabled}
-                                onValueChange={handleNotificationToggle}
-                                trackColor={{ false: colors.neutral[300], true: colors.primary.light }}
-                                thumbColor={notificationsEnabled ? colors.primary.main : colors.neutral[100]}
-                                ios_backgroundColor={colors.neutral[300]}
-                            />
-                        </View>
-                        <View style={[styles.menuItem, styles.menuItemBorder]}>
-                            <Ionicons name="stats-chart-outline" size={22} color={colors.text.secondary} style={styles.menuIcon} />
-                            <Text style={styles.menuTitle}>Analytics</Text>
-                            <TouchableOpacity onPress={() => Alert.alert('Analytics', 'Analytics dashboard coming soon!')}>
-                                <Text style={styles.menuActionText}>View</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <View style={styles.menuItem}>
-                            <Ionicons name="help-circle-outline" size={22} color={colors.text.secondary} style={styles.menuIcon} />
-                            <Text style={styles.menuTitle}>Help & Support</Text>
-                            <TouchableOpacity onPress={() => Alert.alert('Help & Support', 'Contact support@dreampath.app for assistance.')}>
-                                <Text style={styles.menuActionText}>Contact</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </Card>
-                </View>
-
-                {/* Logout */}
+            {/* Logout - Fixed at bottom */}
+            <View style={styles.logoutContainer}>
                 <Button
                     title="Sign Out"
                     variant="outline"
                     onPress={handleLogout}
                     fullWidth
-                    style={{ marginTop: spacing.lg }}
                 />
-
-                {/* Version */}
-                <Text style={styles.version}>DreamPath v1.0.0</Text>
-            </ScrollView>
+            </View>
         </SafeAreaView>
     );
 };
@@ -375,15 +454,18 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background.secondary,
     },
-    scrollContent: {
-        padding: spacing.screenPadding,
-        paddingBottom: 30,
+    contentContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: spacing.screenPadding,
     },
 
     // Profile Header
     profileHeader: {
         alignItems: 'center',
         marginBottom: spacing.xl,
+        width: '100%',
     },
     avatar: {
         width: 80,
@@ -477,6 +559,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: spacing.sm,
         marginBottom: spacing.lg,
+        width: '100%',
     },
     overviewCard: {
         flex: 1,
@@ -516,6 +599,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.35,
         shadowRadius: 3,
         elevation: 10,
+        width: '100%',
     },
     // Premium Card
     premiumCard: {
@@ -611,6 +695,13 @@ const styles = StyleSheet.create({
         color: colors.text.tertiary,
         textAlign: 'center',
         marginTop: spacing.xl,
+    },
+
+    // Logout Container
+    logoutContainer: {
+        paddingHorizontal: spacing.screenPadding,
+        paddingVertical: spacing.md,
+        backgroundColor: colors.background.secondary,
     },
 });
 

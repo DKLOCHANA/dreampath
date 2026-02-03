@@ -21,11 +21,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 
+import { Card } from '@/presentation/components/common';
 import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { Goal, GoalCategory, GoalPriority } from '@/domain/entities/Goal';
-import { getGoalsLocally, getTasksLocally, deleteGoalLocally, USE_LOCAL_DATA } from '@/data';
+import { getGoalsLocally, getTasksLocally, deleteGoalLocally, updateTaskStatusLocally, USE_LOCAL_DATA } from '@/data';
 import { Task } from '@/domain/entities/Task';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { GoalWizard, GoalWizardData } from '@/presentation/components/goal/GoalWizard';
@@ -147,6 +148,16 @@ const getPriorityColor = (priority: GoalPriority): string => {
     }
 };
 
+// Task priority color helper
+const getTaskPriorityColor = (priority: Task['priority']): string => {
+    switch (priority) {
+        case 'HIGH': return '#ef4444';
+        case 'MEDIUM': return '#f59e0b';
+        case 'LOW': return '#10b981';
+        default: return colors.text.secondary;
+    }
+};
+
 export const GoalsScreen: React.FC = () => {
     const user = useAuthStore((state) => state.user);
     const [goals, setGoals] = useState<Goal[]>([]);
@@ -155,6 +166,9 @@ export const GoalsScreen: React.FC = () => {
 
     // Add Goal Modal State - Now using shared GoalWizard
     const [showAddGoal, setShowAddGoal] = useState(false);
+
+    // Goal Tasks Drawer State
+    const [selectedGoalForTasks, setSelectedGoalForTasks] = useState<Goal | null>(null);
 
     // Handle wizard completion
     const handleWizardComplete = async (data: GoalWizardData, goal?: Goal) => {
@@ -231,6 +245,33 @@ export const GoalsScreen: React.FC = () => {
         return { total: goalTasks.length, completed };
     };
 
+    // Get all tasks for a specific goal
+    const getTasksForGoal = (goalId: string) => {
+        return tasks
+            .filter(t => t.goalId === goalId)
+            .sort((a, b) => {
+                // Sort by status (pending first), then by priority, then by date
+                if (a.status === 'COMPLETED' && b.status !== 'COMPLETED') return 1;
+                if (a.status !== 'COMPLETED' && b.status === 'COMPLETED') return -1;
+                const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+                return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+            });
+    };
+
+    // Toggle task completion
+    const toggleTaskStatus = async (task: Task) => {
+        const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+        if (USE_LOCAL_DATA) {
+            await updateTaskStatusLocally(task.id, newStatus);
+            await loadData();
+        }
+    };
+
+    // Open goal tasks drawer
+    const openGoalTasks = (goal: Goal) => {
+        setSelectedGoalForTasks(goal);
+    };
+
     const activeGoals = goals.filter(g => g.status === 'ACTIVE');
     const completedGoals = goals.filter(g => g.status === 'COMPLETED');
 
@@ -283,7 +324,7 @@ export const GoalsScreen: React.FC = () => {
                 overshootRight={false}
             >
                 <View style={styles.goalCardShadow}>
-                    <TouchableOpacity activeOpacity={0.9}>
+                    <TouchableOpacity activeOpacity={0.9} onPress={() => openGoalTasks(goal)}>
                         <LinearGradient
                             colors={config.gradient}
                             start={{ x: 0, y: 0 }}
@@ -423,7 +464,7 @@ export const GoalsScreen: React.FC = () => {
                 {/* Goals List */}
                 {goals.length > 0 ? (
                     <View style={styles.goalsList}>
-                        <Text style={styles.sectionTitle}>Your Goals</Text>
+
                         {goals.map((goal) => (
                             <GoalCard key={goal.id} goal={goal} />
                         ))}
@@ -470,6 +511,129 @@ export const GoalsScreen: React.FC = () => {
                             onClose={() => setShowAddGoal(false)}
                             totalSteps={5}
                         />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Goal Tasks Drawer Modal */}
+            <Modal
+                visible={selectedGoalForTasks !== null}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setSelectedGoalForTasks(null)}
+            >
+                <View style={styles.tasksDrawerOverlay}>
+                    <TouchableOpacity
+                        style={styles.tasksDrawerBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setSelectedGoalForTasks(null)}
+                    />
+                    <View style={styles.tasksDrawer}>
+                        {/* Handle */}
+                        <View style={styles.tasksDrawerHandle} />
+
+                        {/* Header */}
+                        {selectedGoalForTasks && (
+                            <>
+                                <View style={styles.tasksDrawerHeader}>
+                                    <View style={styles.tasksDrawerHeaderLeft}>
+                                        <View style={[styles.tasksDrawerIcon, { backgroundColor: getCategoryConfig(selectedGoalForTasks.category).lightColor }]}>
+                                            <Ionicons
+                                                name={getCategoryConfig(selectedGoalForTasks.category).icon}
+                                                size={20}
+                                                color={getCategoryConfig(selectedGoalForTasks.category).gradient[0]}
+                                            />
+                                        </View>
+                                        <View style={styles.tasksDrawerTitleContainer}>
+                                            <Text style={styles.tasksDrawerTitle} numberOfLines={1}>
+                                                {selectedGoalForTasks.title}
+                                            </Text>
+                                            <Text style={styles.tasksDrawerSubtitle}>
+                                                {getGoalTaskCounts(selectedGoalForTasks.id).completed}/{getGoalTaskCounts(selectedGoalForTasks.id).total} tasks completed
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.tasksDrawerCloseBtn}
+                                        onPress={() => setSelectedGoalForTasks(null)}
+                                    >
+                                        <Ionicons name="close" size={24} color={colors.text.secondary} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Tasks List */}
+                                <ScrollView
+                                    style={styles.tasksDrawerContent}
+                                    contentContainerStyle={styles.tasksDrawerScrollContent}
+                                    showsVerticalScrollIndicator={false}
+                                >
+                                    {getTasksForGoal(selectedGoalForTasks.id).length > 0 ? (
+                                        getTasksForGoal(selectedGoalForTasks.id).map((task) => (
+                                            <View key={task.id} style={styles.drawerTaskCardShadow}>
+                                                <Card style={styles.drawerTaskCard}>
+                                                    <TouchableOpacity
+                                                        style={styles.drawerTaskRow}
+                                                        onPress={() => toggleTaskStatus(task)}
+                                                    >
+                                                        <View style={styles.drawerTaskContent}>
+                                                            <Text style={[
+                                                                styles.drawerTaskTitle,
+                                                                task.status === 'COMPLETED' && styles.drawerTaskTitleCompleted
+                                                            ]}>
+                                                                {task.title}
+                                                            </Text>
+                                                            {task.description && (
+                                                                <Text style={styles.drawerTaskDescription} numberOfLines={2}>
+                                                                    {task.description}
+                                                                </Text>
+                                                            )}
+                                                            <View style={styles.drawerTaskMeta}>
+                                                                <View style={[styles.drawerPriorityBadge, { backgroundColor: getTaskPriorityColor(task.priority) + '20' }]}>
+                                                                    <Text style={[styles.drawerPriorityText, { color: getTaskPriorityColor(task.priority) }]}>
+                                                                        {task.priority}
+                                                                    </Text>
+                                                                </View>
+                                                                <View style={styles.drawerTimeBadge}>
+                                                                    <Ionicons name="time-outline" size={12} color={colors.text.secondary} />
+                                                                    <Text style={styles.drawerTimeText}>{task.estimatedMinutes}m</Text>
+                                                                </View>
+                                                                {task.scheduledDate && (
+                                                                    <View style={styles.drawerDateBadge}>
+                                                                        <Ionicons name="calendar-outline" size={12} color={colors.text.secondary} />
+                                                                        <Text style={styles.drawerDateText}>
+                                                                            {new Date(task.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                        </Text>
+                                                                    </View>
+                                                                )}
+                                                            </View>
+                                                        </View>
+                                                        <TouchableOpacity
+                                                            onPress={() => toggleTaskStatus(task)}
+                                                            style={[
+                                                                styles.drawerCheckbox,
+                                                                task.status === 'COMPLETED' && styles.drawerCheckboxCompleted
+                                                            ]}
+                                                        >
+                                                            {task.status === 'COMPLETED' && (
+                                                                <Ionicons name="checkmark" size={14} color={colors.text.inverse} />
+                                                            )}
+                                                        </TouchableOpacity>
+                                                    </TouchableOpacity>
+                                                </Card>
+                                            </View>
+                                        ))
+                                    ) : (
+                                        <View style={styles.drawerEmptyState}>
+                                            <Ionicons name="list-outline" size={48} color={colors.text.tertiary} />
+                                            <Text style={styles.drawerEmptyTitle}>No tasks yet</Text>
+                                            <Text style={styles.drawerEmptyText}>
+                                                Tasks will appear here once they're generated or added.
+                                            </Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            </>
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -800,6 +964,175 @@ const styles = StyleSheet.create({
     bottomSheetTitle: {
         ...typography.variants.h4,
         color: colors.text.primary,
+    },
+
+    // Tasks Drawer - Full Screen Bottom Sheet
+    tasksDrawerOverlay: {
+        flex: 1,
+    },
+    tasksDrawerBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    tasksDrawer: {
+        flex: 1,
+        backgroundColor: colors.background.primary,
+        marginTop: Platform.OS === 'ios' ? 60 : 40,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+    },
+    tasksDrawerHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: colors.neutral[300],
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+    },
+    tasksDrawerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.light,
+    },
+    tasksDrawerHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        gap: spacing.sm,
+    },
+    tasksDrawerIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tasksDrawerTitleContainer: {
+        flex: 1,
+    },
+    tasksDrawerTitle: {
+        ...typography.variants.label,
+        color: colors.text.primary,
+        fontWeight: '600',
+    },
+    tasksDrawerSubtitle: {
+        ...typography.variants.caption,
+        color: colors.text.secondary,
+        marginTop: 2,
+    },
+    tasksDrawerCloseBtn: {
+        padding: spacing.xs,
+    },
+    tasksDrawerContent: {
+        flex: 1,
+    },
+    tasksDrawerScrollContent: {
+        padding: spacing.lg,
+        paddingBottom: spacing['2xl'],
+    },
+
+    // Drawer Task Cards (same style as TasksScreen)
+    drawerTaskCardShadow: {
+        marginBottom: spacing.sm,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 2,
+        elevation: 6,
+    },
+    drawerTaskCard: {
+        padding: spacing.md,
+        backgroundColor: colors.background.primary,
+        borderRadius: spacing.borderRadius.lg,
+    },
+    drawerTaskRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    drawerTaskContent: {
+        flex: 1,
+    },
+    drawerTaskTitle: {
+        ...typography.variants.label,
+        color: colors.text.primary,
+        marginBottom: spacing.xs,
+    },
+    drawerTaskTitleCompleted: {
+        textDecorationLine: 'line-through',
+        color: colors.text.secondary,
+    },
+    drawerTaskDescription: {
+        ...typography.variants.bodySmall,
+        color: colors.text.secondary,
+        marginBottom: spacing.sm,
+    },
+    drawerTaskMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        flexWrap: 'wrap',
+    },
+    drawerPriorityBadge: {
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 2,
+        borderRadius: spacing.borderRadius.sm,
+    },
+    drawerPriorityText: {
+        ...typography.variants.caption,
+        fontWeight: '600',
+    },
+    drawerTimeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    drawerTimeText: {
+        ...typography.variants.caption,
+        color: colors.text.secondary,
+    },
+    drawerDateBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    drawerDateText: {
+        ...typography.variants.caption,
+        color: colors.text.secondary,
+    },
+    drawerCheckbox: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        borderWidth: 2,
+        borderColor: colors.primary.main,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    drawerCheckboxCompleted: {
+        backgroundColor: colors.success.main,
+        borderColor: colors.success.main,
+    },
+    drawerEmptyState: {
+        alignItems: 'center',
+        paddingVertical: spacing['2xl'],
+        paddingHorizontal: spacing.lg,
+    },
+    drawerEmptyTitle: {
+        ...typography.variants.labelLarge,
+        color: colors.text.primary,
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+    },
+    drawerEmptyText: {
+        ...typography.variants.bodySmall,
+        color: colors.text.secondary,
+        textAlign: 'center',
     },
 });
 

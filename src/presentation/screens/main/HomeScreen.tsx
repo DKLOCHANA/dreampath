@@ -19,6 +19,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const PROFILE_IMAGE_KEY = '@dreampath_profile_image';
 
 import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
@@ -105,9 +108,9 @@ const getPriorityColor = (priority: Task['priority']) => {
 // Get greeting based on time
 const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return 'Good Morning!';
+    if (hour < 17) return 'Good Afternoon!';
+    return 'Good Evening!';
 };
 
 export const HomeScreen: React.FC = () => {
@@ -118,9 +121,25 @@ export const HomeScreen: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [profileImage, setProfileImage] = useState<string | null>(null);
+
+    // Load profile image from cache
+    const loadProfileImage = async () => {
+        try {
+            const savedImage = await AsyncStorage.getItem(PROFILE_IMAGE_KEY);
+            if (savedImage) {
+                setProfileImage(savedImage);
+            }
+        } catch (error) {
+            console.error('[HomeScreen] Error loading profile image:', error);
+        }
+    };
 
     // Load data
     const loadData = async () => {
+        // Always load profile image
+        await loadProfileImage();
+
         if (USE_LOCAL_DATA) {
             try {
                 const localGoals = await getGoalsLocally();
@@ -213,23 +232,24 @@ export const HomeScreen: React.FC = () => {
                     >
                         {/* Header */}
                         <View style={styles.heroHeader}>
-                            <View style={styles.userInfo}>
-                                <View style={styles.avatar}>
-                                    {user?.photoURL ? (
-                                        <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
-                                    ) : (
-                                        <Text style={styles.avatarText}>
-                                            {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
-                                        </Text>
-                                    )}
-                                </View>
-                                <View>
-                                    <Text style={styles.heroGreeting}>{getGreeting()}</Text>
-                                    <Text style={styles.heroName}>{user?.displayName || 'User'}</Text>
-                                </View>
+                            <View>
+                                <Text style={styles.heroGreeting}>{getGreeting()}</Text>
+                                <Text style={styles.heroName}>{user?.displayName || 'User'}</Text>
                             </View>
-                            <TouchableOpacity style={styles.notificationButton}>
-                                <Ionicons name="notifications-outline" size={20} color="#fff" />
+                            <TouchableOpacity
+                                style={styles.avatar}
+                                onPress={() => navigation.navigate('Profile')}
+                                activeOpacity={0.7}
+                            >
+                                {profileImage ? (
+                                    <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                                ) : user?.photoURL ? (
+                                    <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+                                ) : (
+                                    <Text style={styles.avatarText}>
+                                        {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                                    </Text>
+                                )}
                             </TouchableOpacity>
                         </View>
 
@@ -459,7 +479,10 @@ export const HomeScreen: React.FC = () => {
 
                                 return (
                                     <View key={goal.id} style={goals.length === 1 ? styles.goalCardShadowFull : styles.goalCardShadow}>
-                                        <TouchableOpacity activeOpacity={0.9}>
+                                        <TouchableOpacity
+                                            activeOpacity={0.9}
+                                            onPress={() => navigation.navigate('Goals')}
+                                        >
                                             <LinearGradient
                                                 colors={categoryConfig.gradient}
                                                 start={{ x: 0, y: 0 }}

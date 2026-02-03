@@ -15,6 +15,8 @@ import GoalsScreen from '@/presentation/screens/main/GoalsScreen';
 import TasksScreen from '@/presentation/screens/main/TasksScreen';
 import ProfileScreen from '@/presentation/screens/main/ProfileScreen';
 import FirstGoalScreen from '@/presentation/screens/main/FirstGoalScreen';
+import PaywallScreen from '@/presentation/screens/main/PaywallScreen';
+import AnalyticsScreen from '@/presentation/screens/main/AnalyticsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -71,6 +73,16 @@ const TabNavigator: React.FC = () => {
                 }}
             />
             <Tab.Screen
+                name="Analytics"
+                component={AnalyticsScreen}
+                options={{
+                    tabBarLabel: 'Analytics',
+                    tabBarIcon: ({ focused, color }) => (
+                        <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} size={24} color={color} />
+                    ),
+                }}
+            />
+            <Tab.Screen
                 name="Profile"
                 component={ProfileScreen}
                 options={{
@@ -113,12 +125,24 @@ export const MainNavigator: React.FC = () => {
                 <>
                     <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
                     <Stack.Screen name="Tabs" component={TabNavigator} />
+                    <Stack.Screen
+                        name="Paywall"
+                        component={PaywallScreen}
+                        options={{ presentation: 'modal' }}
+                    />
+                    <Stack.Screen name="Analytics" component={AnalyticsScreen} />
                 </>
             ) : (
                 // Has goals - go directly to tabs
                 <>
                     <Stack.Screen name="Tabs" component={TabNavigator} />
                     <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
+                    <Stack.Screen
+                        name="Paywall"
+                        component={PaywallScreen}
+                        options={{ presentation: 'modal' }}
+                    />
+                    <Stack.Screen name="Analytics" component={AnalyticsScreen} />
                 </>
             )}
         </Stack.Navigator>

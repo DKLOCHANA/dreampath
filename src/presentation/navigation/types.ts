@@ -15,6 +15,7 @@ export type MainTabParamList = {
   Home: undefined;
   Goals: undefined;
   Tasks: undefined;
+  Analytics: undefined;
   Profile: undefined;
 };
 
@@ -49,6 +50,8 @@ export type RootStackParamList = {
 export type MainStackParamList = {
   FirstGoal: undefined;
   Tabs: NavigatorScreenParams<MainTabParamList>;
+  Paywall: undefined;
+  Analytics: undefined;
 };
 
 // Declare global types for navigation

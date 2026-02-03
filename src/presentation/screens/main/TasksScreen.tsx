@@ -933,69 +933,77 @@ export const TasksScreen: React.FC = () => {
                 animationType="fade"
                 onRequestClose={() => setSelectedTask(null)}
             >
-                <TouchableOpacity
-                    style={styles.detailModalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setSelectedTask(null)}
-                >
-                    <TouchableOpacity
-                        activeOpacity={1}
-                        style={styles.detailModalContent}
-                        onPress={(e) => e.stopPropagation()}
-                    >
-                        {selectedTask && (
-                            <>
-                                {/* Close Button */}
-                                <TouchableOpacity
-                                    onPress={() => setSelectedTask(null)}
-                                    style={styles.detailModalCloseBtn}
-                                >
-                                    <Ionicons name="close" size={24} color={colors.text.secondary} />
-                                </TouchableOpacity>
+                <View style={styles.detailModalOverlay}>
+                    <View style={styles.detailModalContent}>
+                        {/* Close Button */}
+                        <TouchableOpacity
+                            onPress={() => setSelectedTask(null)}
+                            style={styles.detailModalCloseBtn}
+                        >
+                            <Ionicons name="close" size={24} color={colors.text.secondary} />
+                        </TouchableOpacity>
 
+                        {selectedTask && (
+                            <ScrollView
+                                style={styles.detailModalScroll}
+                                contentContainerStyle={styles.detailModalScrollContent}
+                                showsVerticalScrollIndicator={true}
+                            >
                                 {/* Title */}
                                 <Text style={styles.detailModalTitle}>{selectedTask.title}</Text>
 
                                 {/* Meta Info */}
                                 <Text style={styles.detailModalMeta}>
-                                    • {selectedTask.estimatedMinutes} min • {selectedTask.priority} priority • {selectedTask.status}
+                                    {selectedTask.estimatedMinutes} min • {selectedTask.priority} priority • {selectedTask.status}
                                 </Text>
 
-                                {/* Description */}
-                                <ScrollView style={styles.detailModalDescScroll} nestedScrollEnabled>
-
-                                    {selectedTask.description && (
-                                        <>
-                                            <Text style={styles.detailModalTipsLabel}>Description</Text>
-                                            <Text style={styles.detailModalDesc}>{selectedTask.description}</Text>
-                                        </>
-                                    )}
-
-                                    {/* Tips */}
-                                    {selectedTask.aiReasoning && (
-                                        <>
-                                            <Text style={styles.detailModalTipsLabel}>Tips</Text>
-                                            <Text style={styles.detailModalDesc}>{selectedTask.aiReasoning}</Text>
-                                        </>
-                                    )}
-                                </ScrollView>
-
-                                {/* Action Button */}
-                                <TouchableOpacity
-                                    style={styles.detailModalActionBtn}
-                                    onPress={() => {
-                                        toggleTaskStatus(selectedTask);
-                                        setSelectedTask(null);
-                                    }}
-                                >
-                                    <Text style={styles.detailModalActionText}>
-                                        {selectedTask.status === 'COMPLETED' ? 'Mark Incomplete' : 'Mark Complete'}
+                                {/* Goal */}
+                                {getTaskGoal(selectedTask) && (
+                                    <Text style={styles.detailModalGoal}>
+                                        Goal: {getTaskGoal(selectedTask)?.title}
                                     </Text>
-                                </TouchableOpacity>
-                            </>
+                                )}
+
+                                {/* Description */}
+                                {selectedTask.description && (
+                                    <>
+                                        <View style={styles.detailModalLabelRow}>
+                                            <Ionicons name="document-text-outline" size={16} color={colors.text.primary} />
+                                            <Text style={styles.detailModalTipsLabel}>Description</Text>
+                                        </View>
+                                        <Text style={styles.detailModalDesc}>{selectedTask.description}</Text>
+                                    </>
+                                )}
+
+                                {/* Tips */}
+                                {selectedTask.aiReasoning && (
+                                    <>
+                                        <View style={styles.detailModalLabelRow}>
+                                            <Ionicons name="bulb-outline" size={16} color={colors.text.primary} />
+                                            <Text style={styles.detailModalTipsLabel}>Tips</Text>
+                                        </View>
+                                        <Text style={styles.detailModalDesc}>{selectedTask.aiReasoning}</Text>
+                                    </>
+                                )}
+                            </ScrollView>
                         )}
-                    </TouchableOpacity>
-                </TouchableOpacity>
+
+                        {/* Action Button - Fixed at bottom */}
+                        {selectedTask && (
+                            <TouchableOpacity
+                                style={styles.detailModalActionBtn}
+                                onPress={() => {
+                                    toggleTaskStatus(selectedTask);
+                                    setSelectedTask(null);
+                                }}
+                            >
+                                <Text style={styles.detailModalActionText}>
+                                    {selectedTask.status === 'COMPLETED' ? 'Mark Incomplete' : 'Mark Complete'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -1553,9 +1561,12 @@ const styles = StyleSheet.create({
     detailModalContent: {
         backgroundColor: '#fff',
         borderRadius: 24,
-        padding: spacing.lg,
+        paddingTop: spacing.xl,
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.lg,
         width: '100%',
         maxWidth: 400,
+        minHeight: 250,
         maxHeight: '80%',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
@@ -1570,14 +1581,22 @@ const styles = StyleSheet.create({
         padding: spacing.xs,
         zIndex: 1,
     },
+    detailModalScroll: {
+        flexGrow: 1,
+        flexShrink: 1,
+        marginTop: spacing.sm,
+    },
+    detailModalScrollContent: {
+        paddingBottom: spacing.md,
+        paddingTop: spacing.xs,
+    },
     detailModalTitle: {
         fontSize: typography.fontSize.lg,
         fontWeight: typography.fontWeight.bold as any,
         color: colors.text.primary,
         textAlign: 'center',
-        marginTop: spacing.md,
         marginBottom: spacing.xs,
-        paddingHorizontal: spacing.xl,
+        paddingHorizontal: spacing.md,
     },
     detailModalMeta: {
         fontSize: typography.fontSize.sm,
@@ -1592,7 +1611,7 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
     },
     detailModalDescScroll: {
-        maxHeight: 300,
+        flex: 1,
         marginBottom: spacing.lg,
     },
     detailModalDesc: {
@@ -1601,18 +1620,24 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         textAlign: 'left',
     },
+    detailModalLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginTop: spacing.lg,
+        marginBottom: spacing.xs,
+    },
     detailModalTipsLabel: {
         fontSize: typography.fontSize.sm,
         fontWeight: typography.fontWeight.semibold as any,
         color: colors.text.primary,
-        marginTop: spacing.md,
-        marginBottom: spacing.xs,
     },
     detailModalActionBtn: {
         backgroundColor: colors.primary.main,
         paddingVertical: spacing.sm + 2,
         borderRadius: 12,
         alignItems: 'center',
+        marginTop: spacing.sm,
     },
     detailModalActionText: {
         fontSize: typography.fontSize.base,
