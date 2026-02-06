@@ -23,6 +23,15 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Validate that required environment variables are set
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error(
+    '⚠️ Firebase configuration missing! Make sure environment variables are set.\n' +
+    'For local development: Create a .env file\n' +
+    'For EAS builds: Set secrets in expo.dev or eas.json'
+  );
+}
+
 // Check if Firebase app is already initialized
 const isAppInitialized = getApps().length > 0;
 
