@@ -30,9 +30,9 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
-import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA, clearAllLocalData } from '@/data';
+import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA, getProfileImageKey } from '@/data';
 
-const PROFILE_IMAGE_KEY = '@dreampath_profile_image';
+const PROFILE_IMAGE_KEY = '@dreampath_profile_image'; // Base key, will be made user-specific
 
 export const ProfileScreen: React.FC = () => {
     const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
@@ -44,12 +44,15 @@ export const ProfileScreen: React.FC = () => {
     const [tasksCompleted, setTasksCompleted] = useState(0);
     const [dayStreak, setDayStreak] = useState(0);
 
+    // Get user-specific profile image key
+    const userProfileImageKey = getProfileImageKey();
+
     // Load stats and profile image
     useEffect(() => {
         const loadData = async () => {
-            // Load profile image from AsyncStorage
+            // Load profile image from AsyncStorage (user-specific)
             try {
-                const savedImage = await AsyncStorage.getItem(PROFILE_IMAGE_KEY);
+                const savedImage = await AsyncStorage.getItem(userProfileImageKey);
                 if (savedImage) {
                     setProfileImage(savedImage);
                 }
@@ -74,11 +77,11 @@ export const ProfileScreen: React.FC = () => {
         checkNotificationPermission();
     }, []);
 
-    // Save base64 image directly to AsyncStorage
+    // Save base64 image directly to AsyncStorage (user-specific)
     const saveImageToStorage = async (base64: string): Promise<boolean> => {
         try {
             const imageUri = `data:image/jpeg;base64,${base64}`;
-            await AsyncStorage.setItem(PROFILE_IMAGE_KEY, imageUri);
+            await AsyncStorage.setItem(userProfileImageKey, imageUri);
             return true;
         } catch (error) {
             console.error('Error saving image:', error);
@@ -328,8 +331,7 @@ export const ProfileScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            // Clear all local data before signing out
-                            await clearAllLocalData();
+                            // Don't clear local data - it's now user-specific and persists across sessions
                             await signOut(auth);
                             logout();
                         } catch (error) {

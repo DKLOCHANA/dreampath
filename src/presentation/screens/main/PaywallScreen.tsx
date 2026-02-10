@@ -24,9 +24,8 @@ type PlanType = 'lifetime' | 'monthly';
 
 const FEATURES = [
     { icon: 'sparkles', text: 'Unlimited AI Goal Breakdowns' },
+    { icon: 'bulb', text: 'Advanced AI Planning Agent' },
     { icon: 'analytics', text: 'Advanced Analytics & Insights' },
-    { icon: 'color-palette', text: 'Custom Themes & Dark Mode' },
-    { icon: 'cloud-upload', text: 'Cloud Sync & Backup' },
 ];
 
 export const PaywallScreen: React.FC = () => {

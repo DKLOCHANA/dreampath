@@ -10,8 +10,9 @@ import {
     Image,
     Dimensions,
     Modal,
+    Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -116,6 +117,7 @@ const getGreeting = () => {
 export const HomeScreen: React.FC = () => {
     const navigation = useNavigation<HomeNavigationProp>();
     const user = useAuthStore((state) => state.user);
+    const insets = useSafeAreaInsets();
 
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -212,12 +214,14 @@ export const HomeScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <StatusBar style="light" />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                bounces={false}
+                overScrollMode="never"
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
                 }
@@ -228,7 +232,7 @@ export const HomeScreen: React.FC = () => {
                         colors={['#667eea', '#764ba2', '#f093fb']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                        style={styles.heroSection}
+                        style={[styles.heroSection, { paddingTop: insets.top + spacing.md }]}
                     >
                         {/* Header */}
                         <View style={styles.heroHeader}>
@@ -547,6 +551,9 @@ export const HomeScreen: React.FC = () => {
 
             </ScrollView>
 
+            {/* Bottom safe area spacer for tab bar */}
+            <View style={{ height: insets.bottom }} />
+
             {/* Task Detail Modal */}
             <Modal
                 visible={selectedTask !== null}
@@ -619,7 +626,7 @@ export const HomeScreen: React.FC = () => {
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -643,7 +650,6 @@ const styles = StyleSheet.create({
     // Hero Section - Beautiful Gradient Header
     heroSection: {
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.md,
         paddingBottom: spacing.md + 4,
         borderBottomLeftRadius: 28,
         borderBottomRightRadius: 28,

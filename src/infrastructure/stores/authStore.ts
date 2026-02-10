@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@/domain/entities/User';
+import { setCurrentUserId } from '@/data/localDataService';
 
 interface AuthState {
   user: User | null;
@@ -26,11 +27,15 @@ export const useAuthStore = create<AuthState>()(
       isLoading: true,
       isInitialized: false,
       
-      setUser: (user) => set({ 
-        user, 
-        isAuthenticated: !!user,
-        isLoading: false,
-      }),
+      setUser: (user) => {
+        // Set the current user ID for user-specific storage
+        setCurrentUserId(user?.id || null);
+        set({ 
+          user, 
+          isAuthenticated: !!user,
+          isLoading: false,
+        });
+      },
       
       setLoading: (isLoading) => set({ isLoading }),
       
@@ -49,11 +54,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       
-      logout: () => set({ 
-        user: null, 
-        isAuthenticated: false,
-        isLoading: false,
-      }),
+      logout: () => {
+        // Clear the current user ID but keep data persisted
+        setCurrentUserId(null);
+        set({ 
+          user: null, 
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      },
     }),
     {
       name: 'dreampath-auth',

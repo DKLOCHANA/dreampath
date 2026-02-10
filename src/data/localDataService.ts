@@ -6,6 +6,28 @@ import { Goal, GoalCategory, GoalStatus, GoalPriority } from '@/domain/entities/
 import { Task } from '@/domain/entities/Task';
 import { User } from '@/domain/entities/User';
 
+// Current user ID for user-specific storage
+let currentUserId: string | null = null;
+
+// Set the current user ID (call this on login)
+export const setCurrentUserId = (userId: string | null): void => {
+    currentUserId = userId;
+    console.log('[LocalDataService] Current user ID set:', userId);
+};
+
+// Get the current user ID
+export const getCurrentUserId = (): string | null => currentUserId;
+
+// Generate user-specific storage key
+const getUserKey = (baseKey: string, userId?: string): string => {
+    const uid = userId || currentUserId;
+    if (!uid) {
+        console.warn('[LocalDataService] No user ID set, using base key');
+        return baseKey;
+    }
+    return `${baseKey}_${uid}`;
+};
+
 const STORAGE_KEYS = {
     USER_PROFILE: '@dreampath_user_profile',
     ONBOARDING_DATA: '@dreampath_onboarding_data',
@@ -35,7 +57,8 @@ export interface LocalOnboardingData {
 
 export const saveOnboardingDataLocally = async (data: LocalOnboardingData): Promise<void> => {
     try {
-        await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_DATA, JSON.stringify(data));
+        const key = getUserKey(STORAGE_KEYS.ONBOARDING_DATA);
+        await AsyncStorage.setItem(key, JSON.stringify(data));
         console.log('[LocalDataService] Onboarding data saved locally');
     } catch (error) {
         console.error('[LocalDataService] Error saving onboarding data:', error);
@@ -45,7 +68,8 @@ export const saveOnboardingDataLocally = async (data: LocalOnboardingData): Prom
 
 export const getOnboardingDataLocally = async (): Promise<LocalOnboardingData | null> => {
     try {
-        const data = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_DATA);
+        const key = getUserKey(STORAGE_KEYS.ONBOARDING_DATA);
+        const data = await AsyncStorage.getItem(key);
         return data ? JSON.parse(data) : null;
     } catch (error) {
         console.error('[LocalDataService] Error getting onboarding data:', error);
@@ -59,7 +83,8 @@ export const getOnboardingDataLocally = async (): Promise<LocalOnboardingData | 
 
 export const saveUserProfileLocally = async (userId: string, profileData: Partial<User>): Promise<void> => {
     try {
-        const existingData = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+        const key = getUserKey(STORAGE_KEYS.USER_PROFILE, userId);
+        const existingData = await AsyncStorage.getItem(key);
         const existing = existingData ? JSON.parse(existingData) : {};
         
         const updated = {
@@ -69,7 +94,7 @@ export const saveUserProfileLocally = async (userId: string, profileData: Partia
             updatedAt: new Date().toISOString(),
         };
         
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
+        await AsyncStorage.setItem(key, JSON.stringify(updated));
         console.log('[LocalDataService] User profile saved locally');
     } catch (error) {
         console.error('[LocalDataService] Error saving user profile:', error);
@@ -79,7 +104,8 @@ export const saveUserProfileLocally = async (userId: string, profileData: Partia
 
 export const getUserProfileLocally = async (): Promise<Partial<User> | null> => {
     try {
-        const data = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+        const key = getUserKey(STORAGE_KEYS.USER_PROFILE);
+        const data = await AsyncStorage.getItem(key);
         return data ? JSON.parse(data) : null;
     } catch (error) {
         console.error('[LocalDataService] Error getting user profile:', error);
@@ -93,7 +119,8 @@ export const getUserProfileLocally = async (): Promise<Partial<User> | null> => 
 
 export const saveGoalLocally = async (goal: Goal): Promise<void> => {
     try {
-        const existingData = await AsyncStorage.getItem(STORAGE_KEYS.GOALS);
+        const key = getUserKey(STORAGE_KEYS.GOALS);
+        const existingData = await AsyncStorage.getItem(key);
         const goals: Goal[] = existingData ? JSON.parse(existingData) : [];
         
         // Check if goal exists, update or add
@@ -104,7 +131,7 @@ export const saveGoalLocally = async (goal: Goal): Promise<void> => {
             goals.push(goal);
         }
         
-        await AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(goals));
+        await AsyncStorage.setItem(key, JSON.stringify(goals));
         console.log('[LocalDataService] Goal saved locally:', goal.id);
     } catch (error) {
         console.error('[LocalDataService] Error saving goal:', error);
@@ -114,7 +141,8 @@ export const saveGoalLocally = async (goal: Goal): Promise<void> => {
 
 export const getGoalsLocally = async (): Promise<Goal[]> => {
     try {
-        const data = await AsyncStorage.getItem(STORAGE_KEYS.GOALS);
+        const key = getUserKey(STORAGE_KEYS.GOALS);
+        const data = await AsyncStorage.getItem(key);
         return data ? JSON.parse(data) : [];
     } catch (error) {
         console.error('[LocalDataService] Error getting goals:', error);
@@ -124,10 +152,11 @@ export const getGoalsLocally = async (): Promise<Goal[]> => {
 
 export const deleteGoalLocally = async (goalId: string): Promise<void> => {
     try {
-        const existingData = await AsyncStorage.getItem(STORAGE_KEYS.GOALS);
+        const key = getUserKey(STORAGE_KEYS.GOALS);
+        const existingData = await AsyncStorage.getItem(key);
         const goals: Goal[] = existingData ? JSON.parse(existingData) : [];
         const filtered = goals.filter(g => g.id !== goalId);
-        await AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(filtered));
+        await AsyncStorage.setItem(key, JSON.stringify(filtered));
         console.log('[LocalDataService] Goal deleted locally:', goalId);
     } catch (error) {
         console.error('[LocalDataService] Error deleting goal:', error);
@@ -141,14 +170,15 @@ export const deleteGoalLocally = async (goalId: string): Promise<void> => {
 
 export const saveTasksLocally = async (tasks: Task[]): Promise<void> => {
     try {
-        const existingData = await AsyncStorage.getItem(STORAGE_KEYS.TASKS);
+        const key = getUserKey(STORAGE_KEYS.TASKS);
+        const existingData = await AsyncStorage.getItem(key);
         const existingTasks: Task[] = existingData ? JSON.parse(existingData) : [];
         
         // Merge tasks (update existing, add new)
         const taskMap = new Map(existingTasks.map(t => [t.id, t]));
         tasks.forEach(task => taskMap.set(task.id, task));
         
-        await AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(Array.from(taskMap.values())));
+        await AsyncStorage.setItem(key, JSON.stringify(Array.from(taskMap.values())));
         console.log('[LocalDataService] Tasks saved locally:', tasks.length);
     } catch (error) {
         console.error('[LocalDataService] Error saving tasks:', error);
@@ -158,7 +188,8 @@ export const saveTasksLocally = async (tasks: Task[]): Promise<void> => {
 
 export const getTasksLocally = async (): Promise<Task[]> => {
     try {
-        const data = await AsyncStorage.getItem(STORAGE_KEYS.TASKS);
+        const key = getUserKey(STORAGE_KEYS.TASKS);
+        const data = await AsyncStorage.getItem(key);
         if (!data) return [];
         const tasks = JSON.parse(data);
         // Convert date strings back to Date objects
@@ -176,6 +207,7 @@ export const getTasksLocally = async (): Promise<Task[]> => {
 
 export const updateTaskStatusLocally = async (taskId: string, status: Task['status']): Promise<void> => {
     try {
+        const key = getUserKey(STORAGE_KEYS.TASKS);
         const tasks = await getTasksLocally();
         const index = tasks.findIndex(t => t.id === taskId);
         if (index >= 0) {
@@ -184,7 +216,7 @@ export const updateTaskStatusLocally = async (taskId: string, status: Task['stat
             if (status === 'COMPLETED') {
                 tasks[index].completedAt = new Date();
             }
-            await AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+            await AsyncStorage.setItem(key, JSON.stringify(tasks));
             console.log('[LocalDataService] Task status updated:', taskId, status);
         }
     } catch (error) {
@@ -195,9 +227,10 @@ export const updateTaskStatusLocally = async (taskId: string, status: Task['stat
 
 export const addTaskLocally = async (task: Task): Promise<void> => {
     try {
+        const key = getUserKey(STORAGE_KEYS.TASKS);
         const existingTasks = await getTasksLocally();
         existingTasks.push(task);
-        await AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(existingTasks));
+        await AsyncStorage.setItem(key, JSON.stringify(existingTasks));
         console.log('[LocalDataService] Task added locally:', task.id);
     } catch (error) {
         console.error('[LocalDataService] Error adding task:', error);
@@ -207,9 +240,10 @@ export const addTaskLocally = async (task: Task): Promise<void> => {
 
 export const deleteTaskLocally = async (taskId: string): Promise<void> => {
     try {
+        const key = getUserKey(STORAGE_KEYS.TASKS);
         const tasks = await getTasksLocally();
         const filtered = tasks.filter(t => t.id !== taskId);
-        await AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(filtered));
+        await AsyncStorage.setItem(key, JSON.stringify(filtered));
         console.log('[LocalDataService] Task deleted locally:', taskId);
     } catch (error) {
         console.error('[LocalDataService] Error deleting task:', error);
@@ -315,23 +349,45 @@ export const completeOnboardingLocally = async (
 
 export const clearAllLocalData = async (): Promise<void> => {
     try {
+        // Clear data only for the current user
+        if (!currentUserId) {
+            console.warn('[LocalDataService] No user ID set, cannot clear user-specific data');
+            return;
+        }
         await AsyncStorage.multiRemove([
-            STORAGE_KEYS.USER_PROFILE,
-            STORAGE_KEYS.ONBOARDING_DATA,
-            STORAGE_KEYS.GOALS,
-            STORAGE_KEYS.TASKS,
-            STORAGE_KEYS.PROFILE_IMAGE,
-            STORAGE_KEYS.AI_INSIGHTS,
-            STORAGE_KEYS.AI_INSIGHTS_TIMESTAMP,
+            getUserKey(STORAGE_KEYS.USER_PROFILE),
+            getUserKey(STORAGE_KEYS.ONBOARDING_DATA),
+            getUserKey(STORAGE_KEYS.GOALS),
+            getUserKey(STORAGE_KEYS.TASKS),
+            getUserKey(STORAGE_KEYS.PROFILE_IMAGE),
+            getUserKey(STORAGE_KEYS.AI_INSIGHTS),
+            getUserKey(STORAGE_KEYS.AI_INSIGHTS_TIMESTAMP),
         ]);
-        console.log('[LocalDataService] All local data cleared');
+        console.log('[LocalDataService] User-specific local data cleared for:', currentUserId);
     } catch (error) {
         console.error('[LocalDataService] Error clearing local data:', error);
         throw error;
     }
 };
 
+// Get user-specific profile image key
+export const getProfileImageKey = (): string => {
+    return getUserKey(STORAGE_KEYS.PROFILE_IMAGE);
+};
+
+// Get user-specific AI insights key
+export const getAIInsightsKey = (): string => {
+    return getUserKey(STORAGE_KEYS.AI_INSIGHTS);
+};
+
+// Get user-specific AI insights timestamp key
+export const getAIInsightsTimestampKey = (): string => {
+    return getUserKey(STORAGE_KEYS.AI_INSIGHTS_TIMESTAMP);
+};
+
 export default {
+    setCurrentUserId,
+    getCurrentUserId,
     saveOnboardingDataLocally,
     getOnboardingDataLocally,
     saveUserProfileLocally,
@@ -346,4 +402,7 @@ export default {
     deleteTaskLocally,
     completeOnboardingLocally,
     clearAllLocalData,
+    getProfileImageKey,
+    getAIInsightsKey,
+    getAIInsightsTimestampKey,
 };
