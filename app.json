@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dreampath.app"
+      "bundleIdentifier": "com.dreampath.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "8"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,16 +27,20 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.dreampath.app"
+      "package": "com.dreampath.app",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["@react-native-community/datetimepicker"],
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ],
     "extra": {
       "eas": {
-        "projectId": "c3139a83-3ed0-4ac8-b17b-d582ba3887b0"
+        "projectId": "d25b3f14-2932-448b-9d5c-52fab0b0bfc4"
       }
-    }
+    },
+    "owner": "kavindu_k"
   }
 }

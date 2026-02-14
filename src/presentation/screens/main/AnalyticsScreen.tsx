@@ -27,6 +27,9 @@ import { spacing } from '@/presentation/theme/spacing';
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task } from '@/domain/entities/Task';
 import { getGoalsLocally, getTasksLocally } from '@/data';
+import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainStackParamList } from '@/presentation/navigation/types';
 
 // ============ API CONFIG ============
 const API_BASE_URL = 'https://dreampath-api.vercel.app';
@@ -165,7 +168,8 @@ const CircularProgress: React.FC<{
 };
 
 export const AnalyticsScreen: React.FC = () => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+    const isPro = useIsPro();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -736,6 +740,45 @@ export const AnalyticsScreen: React.FC = () => {
     const currentInsights = aiInsights?.insights || FALLBACK_INSIGHTS;
     const currentTips = aiInsights?.tips || FALLBACK_TIPS;
 
+    // ============ PREMIUM GATE ============
+    // Only Pro subscribers can access the Analytics screen
+    if (!isPro) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <StatusBar style="dark" />
+                <View style={styles.premiumGateContainer}>
+                    <LinearGradient
+                        colors={['#667eea', '#764ba2']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.premiumGateIcon}
+                    >
+                        <Ionicons name="lock-closed" size={36} color="#fff" />
+                    </LinearGradient>
+                    <Text style={styles.premiumGateTitle}>Premium Feature</Text>
+                    <Text style={styles.premiumGateDescription}>
+                        Advanced Analytics & AI Insights are available exclusively for Dreampath Pro subscribers.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.premiumGateButton}
+                        onPress={() => navigation.navigate('Paywall')}
+                        activeOpacity={0.8}
+                    >
+                        <LinearGradient
+                            colors={['#667eea', '#764ba2']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.premiumGateButtonGradient}
+                        >
+                            <Ionicons name="diamond" size={18} color="#fff" />
+                            <Text style={styles.premiumGateButtonText}>Unlock with Pro</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     if (isLoading) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
@@ -1250,6 +1293,57 @@ const styles = StyleSheet.create({
     loadingText: {
         fontSize: typography.fontSize.sm,
         color: colors.text.secondary,
+    },
+
+    // Premium Gate
+    premiumGateContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: spacing.xl,
+    },
+    premiumGateIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.lg,
+    },
+    premiumGateTitle: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: typography.fontWeight.bold as any,
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
+        textAlign: 'center',
+    },
+    premiumGateDescription: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: spacing.xl,
+        maxWidth: 280,
+    },
+    premiumGateButton: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    premiumGateButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        borderRadius: 14,
+    },
+    premiumGateButtonText: {
+        fontSize: typography.fontSize.base,
+        fontWeight: typography.fontWeight.bold as any,
+        color: '#fff',
     },
     header: {
         flexDirection: 'row',

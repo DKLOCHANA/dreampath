@@ -31,6 +31,7 @@ import { spacing } from '@/presentation/theme/spacing';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
 import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA, getProfileImageKey } from '@/data';
+import { useRevenueCat } from '@/presentation/hooks/useRevenueCat';
 
 const PROFILE_IMAGE_KEY = '@dreampath_profile_image'; // Base key, will be made user-specific
 
@@ -43,6 +44,13 @@ export const ProfileScreen: React.FC = () => {
     const [goalsCount, setGoalsCount] = useState(0);
     const [tasksCompleted, setTasksCompleted] = useState(0);
     const [dayStreak, setDayStreak] = useState(0);
+
+    // RevenueCat subscription state
+    const {
+        isPro,
+        presentCustomerCenter,
+        handleRestorePurchases,
+    } = useRevenueCat();
 
     // Get user-specific profile image key
     const userProfileImageKey = getProfileImageKey();
@@ -382,6 +390,14 @@ export const ProfileScreen: React.FC = () => {
                         <Ionicons name="pencil" size={16} color={colors.text.secondary} />
                     </TouchableOpacity>
                     <Text style={styles.userEmail}>{user?.email}</Text>
+
+                    {/* Pro Badge — shown when user is subscribed */}
+                    {isPro && (
+                        <View style={styles.proBadge}>
+                            <Ionicons name="diamond" size={12} color="#fff" />
+                            <Text style={styles.proBadgeText}>PRO</Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Stats Overview */}
@@ -409,35 +425,81 @@ export const ProfileScreen: React.FC = () => {
                     </View>
                 </View>
 
-                {/* Premium Upgrade Card with Gradient */}
-                <View style={styles.premiumCardShadow}>
-                    <LinearGradient
-                        colors={['#667eea', '#764ba2', '#f093fb']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.premiumCard}
+                {/* Premium Card — Upgrade OR Manage Subscription */}
+                {isPro ? (
+                    // Active subscriber: show manage subscription card
+                    <View style={styles.premiumCardShadow}>
+                        <LinearGradient
+                            colors={['#10b981', '#059669', '#047857']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.premiumCard}
+                        >
+                            <View style={styles.premiumContent}>
+                                <View style={styles.premiumIconContainer}>
+                                    <Ionicons name="diamond" size={28} color="#fff" />
+                                </View>
+                                <View style={styles.premiumTextContainer}>
+                                    <Text style={styles.premiumTitle}>Dreampath Pro</Text>
+                                    <Text style={styles.premiumDescription}>
+                                        All premium features unlocked
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.premiumButtonShadow}>
+                                <TouchableOpacity
+                                    style={styles.premiumButton}
+                                    onPress={presentCustomerCenter}
+                                >
+                                    <Text style={[styles.premiumButtonText, { color: '#059669' }]}>
+                                        Manage
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </View>
+                ) : (
+                    // Not subscribed: show upgrade card
+                    <View style={styles.premiumCardShadow}>
+                        <LinearGradient
+                            colors={['#667eea', '#764ba2', '#f093fb']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.premiumCard}
+                        >
+                            <View style={styles.premiumContent}>
+                                <View style={styles.premiumIconContainer}>
+                                    <Ionicons name="diamond" size={28} color="#fff" />
+                                </View>
+                                <View style={styles.premiumTextContainer}>
+                                    <Text style={styles.premiumTitle}>Upgrade to Premium</Text>
+                                    <Text style={styles.premiumDescription}>
+                                        Unlock AI insights, unlimited goals & more
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.premiumButtonShadow}>
+                                <TouchableOpacity
+                                    style={styles.premiumButton}
+                                    onPress={() => navigation.navigate('Paywall')}
+                                >
+                                    <Text style={styles.premiumButtonText}>Upgrade</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </View>
+                )}
+
+                {/* Restore Purchases link — only show for non-subscribers */}
+                {!isPro && (
+                    <TouchableOpacity
+                        style={styles.restoreButton}
+                        onPress={handleRestorePurchases}
                     >
-                        <View style={styles.premiumContent}>
-                            <View style={styles.premiumIconContainer}>
-                                <Ionicons name="diamond" size={28} color="#fff" />
-                            </View>
-                            <View style={styles.premiumTextContainer}>
-                                <Text style={styles.premiumTitle}>Upgrade to Premium</Text>
-                                <Text style={styles.premiumDescription}>
-                                    Unlock AI insights, unlimited goals & more
-                                </Text>
-                            </View>
-                        </View>
-                        <View style={styles.premiumButtonShadow}>
-                            <TouchableOpacity
-                                style={styles.premiumButton}
-                                onPress={() => navigation.navigate('Paywall')}
-                            >
-                                <Text style={styles.premiumButtonText}>Upgrade</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </LinearGradient>
-                </View>
+                        <Ionicons name="refresh-outline" size={16} color={colors.text.secondary} />
+                        <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Logout - Fixed at bottom */}
@@ -520,6 +582,25 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
         marginTop: spacing.xs,
     },
+
+    // Pro Badge
+    proBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 4,
+        borderRadius: 20,
+        backgroundColor: '#667eea',
+    },
+    proBadgeText: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: '700' as any,
+        color: '#fff',
+        letterSpacing: 1,
+    },
+
     editNameContainer: {
         width: '100%',
         paddingHorizontal: spacing.xl,
@@ -657,6 +738,18 @@ const styles = StyleSheet.create({
         ...typography.variants.label,
         color: colors.primary.main,
         fontWeight: '600',
+    },
+
+    // Restore Purchases
+    restoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: spacing.sm,
+    },
+    restoreButtonText: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.secondary,
     },
 
     // Menu Card Shadow Wrapper

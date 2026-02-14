@@ -17,7 +17,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -29,7 +29,10 @@ import { Goal, GoalCategory, GoalPriority } from '@/domain/entities/Goal';
 import { getGoalsLocally, getTasksLocally, deleteGoalLocally, updateTaskStatusLocally, USE_LOCAL_DATA } from '@/data';
 import { Task } from '@/domain/entities/Task';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
 import { GoalWizard, GoalWizardData } from '@/presentation/components/goal/GoalWizard';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainStackParamList } from '@/presentation/navigation/types';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.28; // ~1/4 of screen
@@ -160,6 +163,8 @@ const getTaskPriorityColor = (priority: Task['priority']): string => {
 
 export const GoalsScreen: React.FC = () => {
     const user = useAuthStore((state) => state.user);
+    const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+    const isPro = useIsPro();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [refreshing, setRefreshing] = useState(false);
@@ -178,6 +183,18 @@ export const GoalsScreen: React.FC = () => {
     };
 
     const handleCreateGoal = () => {
+        // Free users can only have 1 goal — gate additional goals behind Pro
+        if (!isPro && goals.length >= 1) {
+            Alert.alert(
+                'Upgrade to Pro',
+                'Free users can create 1 goal. Upgrade to Dreampath Pro for unlimited goals!',
+                [
+                    { text: 'Not Now', style: 'cancel' },
+                    { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+                ],
+            );
+            return;
+        }
         setShowAddGoal(true);
     };
 
