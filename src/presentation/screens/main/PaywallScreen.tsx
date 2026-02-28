@@ -9,6 +9,7 @@ import {
     Alert,
     ActivityIndicator,
     Platform,
+    Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -415,11 +416,11 @@ export const PaywallScreen: React.FC = () => {
                                 <Text style={styles.footerLink}>Restore</Text>
                             </TouchableOpacity>
                             <Text style={styles.footerDivider}>•</Text>
-                            <TouchableOpacity onPress={() => Alert.alert('Terms of Use', 'Terms of Use link')}>
+                            <TouchableOpacity onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/terms-of-service/')}>
                                 <Text style={styles.footerLink}>Terms of Use</Text>
                             </TouchableOpacity>
                             <Text style={styles.footerDivider}>•</Text>
-                            <TouchableOpacity onPress={() => Alert.alert('Privacy Policy', 'Privacy Policy link')}>
+                            <TouchableOpacity onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/privacy-policy/')}>
                                 <Text style={styles.footerLink}>Privacy Policy</Text>
                             </TouchableOpacity>
                         </View>
