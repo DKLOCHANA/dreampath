@@ -285,6 +285,175 @@ function convertPlanToTasks(plan: GeneratedPlan, goalId: string): Task[] {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// WEEKLY PATTERN GENERATION (HYBRID APPROACH)
+// ═══════════════════════════════════════════════════════════════
+
+import { 
+    GeneratedWeeklyPatterns, 
+    WeeklyPattern, 
+    TaskTemplate,
+    generateDefaultPatterns 
+} from './hybridTaskService';
+
+interface WeeklyPatternsRequest {
+    goal: {
+        title: string;
+        description?: string;
+        category: GoalCategory;
+        priority: 'LOW' | 'MEDIUM' | 'HIGH';
+        totalWeeks: number;
+    };
+    user: {
+        dailyAvailableHours: number;
+        experienceLevel: 'beginner' | 'intermediate' | 'advanced';
+        challenges?: string[];
+    };
+}
+
+interface WeeklyPatternsAPIResponse {
+    success: boolean;
+    patterns: {
+        weekNumber: number;
+        theme: string;
+        phase: 'foundation' | 'building' | 'mastery';
+        weekdayTasks: {
+            title: string;
+            description: string;
+            duration: number;
+            priority: 'HIGH' | 'MEDIUM' | 'LOW';
+            difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+            category: string;
+            tips?: string;
+        }[];
+        weekendTasks: {
+            title: string;
+            description: string;
+            duration: number;
+            priority: 'HIGH' | 'MEDIUM' | 'LOW';
+            difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+            category: string;
+            tips?: string;
+        }[];
+        difficultyLevel: number;
+    }[];
+    planSummary: string;
+    motivationalMessage: string;
+    successProbability: number;
+}
+
+/**
+ * Generate weekly patterns from AI - single API call for entire goal
+ * This is the hybrid approach: AI generates patterns, we expand them to daily tasks
+ * 
+ * Benefits:
+ * - Single API call regardless of goal duration
+ * - Patterns can be reused for very long goals
+ * - Stays within API quota limits
+ */
+export async function generateWeeklyPatternsWithAI(
+    goal: Goal,
+    wizardData: GoalWizardData,
+    totalWeeks: number
+): Promise<GeneratedWeeklyPatterns> {
+    console.log('[AIService] Generating weekly patterns for:', goal.title);
+    console.log('[AIService] Total weeks:', totalWeeks);
+
+    // Cap the patterns to generate (for very long goals, we'll cycle patterns)
+    const weeksToGenerate = Math.min(totalWeeks, 12);
+
+    const requestBody: WeeklyPatternsRequest = {
+        goal: {
+            title: goal.title,
+            description: goal.description,
+            category: goal.category,
+            priority: goal.priority,
+            totalWeeks: weeksToGenerate,
+        },
+        user: {
+            dailyAvailableHours: parseInt(wizardData.dailyHours) || 2,
+            experienceLevel: (wizardData.experienceLevel as 'beginner' | 'intermediate' | 'advanced') || 'beginner',
+            challenges: wizardData.challenges.length > 0 ? wizardData.challenges : undefined,
+        },
+    };
+
+    try {
+        console.log('[AIService] Requesting weekly patterns from API...');
+        
+        const response = await fetch(`${API_BASE_URL}/api/generate-weekly-patterns`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        // If the endpoint doesn't exist yet, fall back to default patterns
+        if (response.status === 404) {
+            console.log('[AIService] Weekly patterns endpoint not available, using defaults');
+            return generateDefaultPatterns(goal, wizardData, totalWeeks);
+        }
+
+        if (!response.ok) {
+            console.warn('[AIService] Weekly patterns API error, using defaults');
+            return generateDefaultPatterns(goal, wizardData, totalWeeks);
+        }
+
+        const rawText = await response.text();
+        let data: WeeklyPatternsAPIResponse;
+        
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseError) {
+            console.warn('[AIService] Failed to parse weekly patterns response, using defaults');
+            return generateDefaultPatterns(goal, wizardData, totalWeeks);
+        }
+
+        if (!data.success || !data.patterns || data.patterns.length === 0) {
+            console.warn('[AIService] Invalid weekly patterns response, using defaults');
+            return generateDefaultPatterns(goal, wizardData, totalWeeks);
+        }
+
+        console.log('[AIService] Weekly patterns generated successfully:', data.patterns.length);
+
+        // Convert API response to our format
+        const patterns: WeeklyPattern[] = data.patterns.map(p => ({
+            weekNumber: p.weekNumber,
+            theme: p.theme,
+            phase: p.phase,
+            weekdayTasks: p.weekdayTasks as TaskTemplate[],
+            weekendTasks: p.weekendTasks as TaskTemplate[],
+            difficultyLevel: p.difficultyLevel,
+        }));
+
+        return {
+            patterns,
+            planSummary: data.planSummary,
+            motivationalMessage: data.motivationalMessage,
+            successProbability: data.successProbability,
+            totalWeeks,
+        };
+
+    } catch (error: any) {
+        console.error('[AIService] Error generating weekly patterns:', error);
+        console.log('[AIService] Falling back to default patterns');
+        return generateDefaultPatterns(goal, wizardData, totalWeeks);
+    }
+}
+
+/**
+ * Calculate total weeks for a goal
+ */
+export function calculateGoalWeeks(startDate: Date, targetDate: Date): number {
+    const start = new Date(startDate);
+    const end = new Date(targetDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.ceil(diffDays / 7);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ═══════════════════════════════════════════════════════════════
 
@@ -301,5 +470,7 @@ export async function checkAPIHealth(): Promise<boolean> {
 
 export default {
     generatePlanWithAI,
+    generateWeeklyPatternsWithAI,
+    calculateGoalWeeks,
     checkAPIHealth,
 };

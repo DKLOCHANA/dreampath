@@ -26,7 +26,7 @@ import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { Goal, GoalCategory, GoalPriority } from '@/domain/entities/Goal';
-import { getGoalsLocally, getTasksLocally, deleteGoalLocally, updateTaskStatusLocally, USE_LOCAL_DATA } from '@/data';
+import { getGoals, getTasks, deleteGoal, updateTaskStatus, USE_LOCAL_DATA } from '@/data';
 import { Task } from '@/domain/entities/Task';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
@@ -210,7 +210,7 @@ export const GoalsScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await deleteGoalLocally(goalId);
+                            await deleteGoal(goalId);
                             await loadData();
                             console.log('[GoalsScreen] Goal deleted:', goalId);
                         } catch (error) {
@@ -225,16 +225,14 @@ export const GoalsScreen: React.FC = () => {
 
     // Load goals and tasks from local storage
     const loadData = async () => {
-        if (USE_LOCAL_DATA) {
-            try {
-                const localGoals = await getGoalsLocally();
-                const localTasks = await getTasksLocally();
-                setGoals(localGoals);
-                setTasks(localTasks);
-                console.log('[GoalsScreen] Loaded goals:', localGoals.length);
-            } catch (error) {
-                console.error('[GoalsScreen] Error loading data:', error);
-            }
+        try {
+            const localGoals = await getGoals();
+            const localTasks = await getTasks();
+            setGoals(localGoals);
+            setTasks(localTasks);
+            console.log('[GoalsScreen] Loaded goals:', localGoals.length);
+        } catch (error) {
+            console.error('[GoalsScreen] Error loading data:', error);
         }
     };
 
@@ -278,10 +276,8 @@ export const GoalsScreen: React.FC = () => {
     // Toggle task completion
     const toggleTaskStatus = async (task: Task) => {
         const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-        if (USE_LOCAL_DATA) {
-            await updateTaskStatusLocally(task.id, newStatus);
-            await loadData();
-        }
+        await updateTaskStatus(task.id, newStatus);
+        await loadData();
     };
 
     // Open goal tasks drawer

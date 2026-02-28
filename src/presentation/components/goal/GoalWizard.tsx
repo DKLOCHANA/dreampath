@@ -21,9 +21,14 @@ import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { GoalCategory, GoalPriority, Goal } from '@/domain/entities/Goal';
-import { saveGoalLocally, saveTasksLocally } from '@/data';
+import { 
+    saveGoal as saveGoalWithSync, 
+    saveTasks as saveTasksWithSync 
+} from '@/data/dataSyncService';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
-import { generatePlanWithAI } from '@/services/aiPlanService';
+import { generatePlanWithAI, generateWeeklyPatternsWithAI, calculateGoalWeeks } from '@/services/aiPlanService';
+import { generateHybridTasks, generateDefaultPatterns } from '@/services/hybridTaskService';
+import { initializeBatchGenerationWithSync } from '@/services/taskBatchService';
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -253,57 +258,144 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                 updatedAt: new Date(),
             };
 
-            // Save goal locally first
-            await saveGoalLocally(newGoal);
-            console.log('[GoalWizard] Goal saved locally:', newGoal.title);
+            // Save goal (locally + Firestore sync)
+            await saveGoalWithSync(newGoal);
+            console.log('[GoalWizard] Goal saved:', newGoal.title);
 
-            // Call AI API to generate tasks
+            // Calculate total weeks for the goal
+            const totalWeeks = calculateGoalWeeks(startDate, targetDate);
+            const totalDays = Math.ceil((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+            
+            console.log('[GoalWizard] Goal duration:', totalDays, 'days,', totalWeeks, 'weeks');
+
+            // Use hybrid approach for task generation
             try {
                 setLoadingMessage('🤖 AI is creating your personalized plan...');
-                console.log('[GoalWizard] Calling AI to generate tasks...');
-                console.log('[GoalWizard] Sending data:', JSON.stringify(wizardData, null, 2));
+                console.log('[GoalWizard] Using hybrid task generation approach...');
 
-                const { tasks, plan } = await generatePlanWithAI(
+                // Step 1: Generate weekly patterns (single AI call)
+                let weeklyPatterns;
+                try {
+                    setLoadingMessage('🧠 Creating weekly patterns...');
+                    weeklyPatterns = await generateWeeklyPatternsWithAI(newGoal, wizardData, totalWeeks);
+                    console.log('[GoalWizard] Weekly patterns generated:', weeklyPatterns.patterns.length);
+                } catch (patternError) {
+                    console.log('[GoalWizard] AI patterns failed, using defaults');
+                    weeklyPatterns = generateDefaultPatterns(newGoal, wizardData, totalWeeks);
+                }
+
+                // Step 2: Generate first batch of tasks using hybrid approach (with sync)
+                setLoadingMessage('📋 Creating your personalized tasks...');
+                const { tasks, metadata } = await initializeBatchGenerationWithSync(
                     newGoal,
                     wizardData,
-                    user?.id,
-                    user?.displayName
+                    weeklyPatterns
                 );
 
-                setLoadingMessage('Saving your tasks...');
+                console.log('[GoalWizard] Hybrid generated', tasks.length, 'tasks for first batch');
+                console.log('[GoalWizard] Tasks generated for days 0 to', metadata.generatedUpToDay);
 
-                // Save generated tasks locally
+                // Save generated tasks (locally + Firestore sync)
                 if (tasks.length > 0) {
-                    await saveTasksLocally(tasks);
-                    console.log('[GoalWizard] AI generated', tasks.length, 'tasks');
+                    setLoadingMessage('💾 Saving your tasks...');
+                    await saveTasksWithSync(tasks);
+                    console.log('[GoalWizard] Tasks saved');
 
                     // Update goal metrics
                     newGoal.metrics.totalTasks = tasks.length;
-                    await saveGoalLocally(newGoal);
+                    await saveGoalWithSync(newGoal);
                 }
 
                 setLoadingMessage('');
                 setIsSubmitting(false);
 
-                // Show success with AI summary
+                // Show success message
+                const remainingDays = metadata.totalDays - metadata.generatedUpToDay;
+                const batchNote = remainingDays > 0 
+                    ? `\n📅 More tasks will be generated as you progress!`
+                    : '';
+
                 Alert.alert(
                     '🎯 Goal Created!',
-                    `${plan.motivationalMessage}\n\n✨ ${tasks.length} personalized tasks generated!\n📅 ${plan.totalWeeks} weeks plan\n🎯 ${Math.round(plan.successProbability * 100)}% success probability`,
+                    `${weeklyPatterns.motivationalMessage}\n\n` +
+                    `✨ ${tasks.length} personalized tasks generated!\n` +
+                    `📆 ${totalWeeks} weeks plan\n` +
+                    `🎯 ${Math.round(weeklyPatterns.successProbability * 100)}% success probability` +
+                    batchNote,
                     [{ text: 'Let\'s Go!', onPress: () => onComplete(wizardData, newGoal) }]
                 );
                 return;
             } catch (aiError: any) {
-                console.warn('[GoalWizard] AI generation failed:', aiError.message);
-                setLoadingMessage('');
-                setIsSubmitting(false);
+                console.warn('[GoalWizard] Hybrid generation failed:', aiError.message);
+                
+                // Fallback: Try the original AI plan generation
+                try {
+                    setLoadingMessage('🔄 Trying alternative approach...');
+                    const { tasks, plan } = await generatePlanWithAI(
+                        newGoal,
+                        wizardData,
+                        user?.id,
+                        user?.displayName
+                    );
 
-                // Goal is saved, but no AI tasks - user can still proceed
-                Alert.alert(
-                    'Goal Created',
-                    `Your goal "${newGoal.title}" has been saved.\n\nAI task generation is temporarily unavailable - you can add tasks manually.`,
-                    [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
-                );
-                return;
+                    if (tasks.length > 0) {
+                        await saveTasksWithSync(tasks);
+                        newGoal.metrics.totalTasks = tasks.length;
+                        await saveGoalWithSync(newGoal);
+                    }
+
+                    setLoadingMessage('');
+                    setIsSubmitting(false);
+
+                    Alert.alert(
+                        '🎯 Goal Created!',
+                        `${plan.motivationalMessage}\n\n✨ ${tasks.length} personalized tasks generated!\n📅 ${plan.totalWeeks} weeks plan\n🎯 ${Math.round(plan.successProbability * 100)}% success probability`,
+                        [{ text: 'Let\'s Go!', onPress: () => onComplete(wizardData, newGoal) }]
+                    );
+                    return;
+                } catch (fallbackError: any) {
+                    console.warn('[GoalWizard] Fallback AI also failed:', fallbackError.message);
+                    
+                    // Last resort: Generate tasks with default patterns (no AI)
+                    try {
+                        setLoadingMessage('📋 Creating tasks offline...');
+                        const defaultPatterns = generateDefaultPatterns(newGoal, wizardData, totalWeeks);
+                        const { tasks } = await initializeBatchGenerationWithSync(
+                            newGoal,
+                            wizardData,
+                            defaultPatterns
+                        );
+
+                        if (tasks.length > 0) {
+                            await saveTasksWithSync(tasks);
+                            newGoal.metrics.totalTasks = tasks.length;
+                            await saveGoalWithSync(newGoal);
+                        }
+
+                        setLoadingMessage('');
+                        setIsSubmitting(false);
+
+                        Alert.alert(
+                            '🎯 Goal Created!',
+                            `Your goal "${newGoal.title}" has been saved with ${tasks.length} tasks.\n\n` +
+                            `📝 Tasks were generated offline. Connect to internet for AI-enhanced plans!`,
+                            [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                        );
+                        return;
+                    } catch (offlineError: any) {
+                        console.warn('[GoalWizard] Offline generation also failed:', offlineError.message);
+                        setLoadingMessage('');
+                        setIsSubmitting(false);
+
+                        // Goal is saved, but no tasks - user can still proceed
+                        Alert.alert(
+                            'Goal Created',
+                            `Your goal "${newGoal.title}" has been saved.\n\nTask generation is temporarily unavailable - you can add tasks manually.`,
+                            [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                        );
+                        return;
+                    }
+                }
             }
         } catch (error: any) {
             console.error('[GoalWizard] Error:', error);

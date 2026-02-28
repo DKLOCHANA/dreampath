@@ -26,7 +26,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task } from '@/domain/entities/Task';
-import { getGoalsLocally, getTasksLocally } from '@/data';
+import { getGoals, getTasks } from '@/data';
 import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
@@ -224,8 +224,8 @@ export const AnalyticsScreen: React.FC = () => {
             try {
                 setIsLoading(true);
                 const [localGoals, localTasks] = await Promise.all([
-                    getGoalsLocally(),
-                    getTasksLocally(),
+                    getGoals(),
+                    getTasks(),
                 ]);
                 setGoals(localGoals.filter(g => g.status === 'ACTIVE' || g.status === 'COMPLETED'));
                 setTasks(localTasks);

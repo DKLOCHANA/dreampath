@@ -30,7 +30,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
-import { getGoalsLocally, getTasksLocally, USE_LOCAL_DATA, getProfileImageKey } from '@/data';
+import { getGoals, getTasks, USE_LOCAL_DATA, getProfileImageKey } from '@/data';
 import { useRevenueCat } from '@/presentation/hooks/useRevenueCat';
 
 const PROFILE_IMAGE_KEY = '@dreampath_profile_image'; // Base key, will be made user-specific
@@ -68,17 +68,15 @@ export const ProfileScreen: React.FC = () => {
                 console.error('Error loading profile image:', error);
             }
 
-            if (USE_LOCAL_DATA) {
-                try {
-                    const goals = await getGoalsLocally();
-                    const tasks = await getTasksLocally();
-                    setGoalsCount(goals.length);
-                    setTasksCompleted(tasks.filter(t => t.status === 'COMPLETED').length);
-                    // Calculate streak (simplified - just count consecutive days with completed tasks)
-                    setDayStreak(Math.min(goals.length * 2, 30)); // Placeholder calculation
-                } catch (error) {
-                    console.error('Error loading stats:', error);
-                }
+            try {
+                const goals = await getGoals();
+                const tasks = await getTasks();
+                setGoalsCount(goals.length);
+                setTasksCompleted(tasks.filter(t => t.status === 'COMPLETED').length);
+                // Calculate streak (simplified - just count consecutive days with completed tasks)
+                setDayStreak(Math.min(goals.length * 2, 30)); // Placeholder calculation
+            } catch (error) {
+                console.error('Error loading stats:', error);
             }
         };
         loadData();
@@ -421,7 +419,7 @@ export const ProfileScreen: React.FC = () => {
                             <Ionicons name="flame-outline" size={20} color="#d97706" />
                         </View>
                         <Text style={styles.overviewValue}>{dayStreak}</Text>
-                        <Text style={styles.overviewLabel}>Day Streak</Text>
+                        <Text style={styles.overviewLabel}>Daily Streak</Text>
                     </View>
                 </View>
 

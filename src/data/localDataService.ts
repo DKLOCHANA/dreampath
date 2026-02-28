@@ -158,6 +158,14 @@ export const deleteGoalLocally = async (goalId: string): Promise<void> => {
         const filtered = goals.filter(g => g.id !== goalId);
         await AsyncStorage.setItem(key, JSON.stringify(filtered));
         console.log('[LocalDataService] Goal deleted locally:', goalId);
+        
+        // Clean up batch data for this goal
+        try {
+            const { cleanupGoalBatchData } = await import('@/services/taskBatchService');
+            await cleanupGoalBatchData(goalId);
+        } catch (batchError) {
+            console.warn('[LocalDataService] Could not clean up batch data:', batchError);
+        }
     } catch (error) {
         console.error('[LocalDataService] Error deleting goal:', error);
         throw error;

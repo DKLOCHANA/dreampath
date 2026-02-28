@@ -16,6 +16,25 @@ import { auth, db } from './config';
 import { User } from '@/domain/entities/User';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 
+// Helper to trigger data sync after login (runs in background)
+const triggerDataSync = async (): Promise<void> => {
+    try {
+        const { syncFromFirestore, syncToFirestore } = await import('@/data/dataSyncService');
+        console.log('[AuthService] Starting data sync after login...');
+        
+        // First pull data from Firestore to local
+        const pullResult = await syncFromFirestore();
+        console.log('[AuthService] Data pulled from Firestore:', pullResult);
+        
+        // Then push any local-only data to Firestore
+        const pushResult = await syncToFirestore();
+        console.log('[AuthService] Data pushed to Firestore:', pushResult);
+    } catch (error) {
+        console.error('[AuthService] Data sync failed:', error);
+        // Don't throw - sync failure shouldn't block login
+    }
+};
+
 // Convert Firebase User to our User entity
 const firebaseUserToUser = async (firebaseUser: FirebaseUser): Promise<User> => {
     // Try to get additional user data from Firestore
@@ -90,6 +109,10 @@ export const signInWithEmail = async (email: string, password: string): Promise<
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed in:', user.email);
+        
+        // Sync data from Firestore after login
+        triggerDataSync();
+        
         return user;
     } catch (error: any) {
         // Don't log error to console to avoid red error overlay in dev mode
@@ -111,6 +134,10 @@ export const signInWithGoogle = async (idToken: string): Promise<User> => {
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed in with Google:', user.email);
+        
+        // Sync data from Firestore after login
+        triggerDataSync();
+        
         return user;
     } catch (error: any) {
         console.error('[AuthService] Google sign in error:', error);
@@ -136,6 +163,10 @@ export const signInWithApple = async (identityToken: string, nonce: string): Pro
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed in with Apple:', user.email);
+        
+        // Sync data from Firestore after login
+        triggerDataSync();
+        
         return user;
     } catch (error: any) {
         console.error('[AuthService] Apple sign in error:', error);
@@ -211,6 +242,9 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void): (
             try {
                 const user = await firebaseUserToUser(firebaseUser);
                 callback(user);
+                
+                // Sync data when auth state changes (e.g., app restart with existing session)
+                triggerDataSync();
             } catch (error) {
                 console.error('[AuthService] Error processing auth state:', error);
                 callback(null);

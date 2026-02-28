@@ -31,7 +31,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { Task, TaskPriority, TaskDifficulty, TaskStatus } from '@/domain/entities/Task';
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
-import { getTasksLocally, getGoalsLocally, updateTaskStatusLocally, addTaskLocally, deleteTaskLocally, USE_LOCAL_DATA } from '@/data';
+import { getTasks, getGoals, updateTaskStatus, addTask, deleteTask, USE_LOCAL_DATA } from '@/data';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -150,18 +150,15 @@ export const TasksScreen: React.FC = () => {
 
     // Load tasks and goals from local storage
     const loadData = async () => {
-        if (USE_LOCAL_DATA) {
-            try {
-                const localTasks = await getTasksLocally();
-                const localGoals = await getGoalsLocally();
-                setTasks(localTasks);
-                setGoals(localGoals);
-                console.log('[TasksScreen] Loaded tasks:', localTasks.length, 'goals:', localGoals.length);
-            } catch (error) {
-                console.error('[TasksScreen] Error loading data:', error);
-            }
+        try {
+            const localTasks = await getTasks();
+            const localGoals = await getGoals();
+            setTasks(localTasks);
+            setGoals(localGoals);
+            console.log('[TasksScreen] Loaded tasks:', localTasks.length, 'goals:', localGoals.length);
+        } catch (error) {
+            console.error('[TasksScreen] Error loading data:', error);
         }
-        // TODO: Add Firebase loading here when switching to production
     };
 
     // Refresh data when screen comes into focus
@@ -184,12 +181,8 @@ export const TasksScreen: React.FC = () => {
     // Toggle task completion
     const toggleTaskStatus = async (task: Task) => {
         const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-
-        if (USE_LOCAL_DATA) {
-            await updateTaskStatusLocally(task.id, newStatus);
-            await loadData();
-        }
-        // TODO: Add Firebase update here when switching to production
+        await updateTaskStatus(task.id, newStatus);
+        await loadData();
     };
 
     // Delete task
@@ -204,7 +197,7 @@ export const TasksScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await deleteTaskLocally(taskId);
+                            await deleteTask(taskId);
                             await loadData();
                             console.log('[TasksScreen] Task deleted:', taskId);
                         } catch (error) {
@@ -302,11 +295,9 @@ export const TasksScreen: React.FC = () => {
 
         console.log('[TasksScreen] Adding new task:', newTask);
 
-        if (USE_LOCAL_DATA) {
-            await addTaskLocally(newTask);
-            await loadData();
-            console.log('[TasksScreen] Task added and data reloaded');
-        }
+        await addTask(newTask);
+        await loadData();
+        console.log('[TasksScreen] Task added and data reloaded');
 
         setShowAddTask(false);
         resetForm();

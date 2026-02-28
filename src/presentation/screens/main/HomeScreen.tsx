@@ -31,7 +31,13 @@ import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { MainTabParamList } from '@/presentation/navigation/types';
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task } from '@/domain/entities/Task';
-import { getGoalsLocally, getTasksLocally, updateTaskStatusLocally, USE_LOCAL_DATA } from '@/data';
+import { 
+    getGoals, 
+    getTasks, 
+    updateTaskStatus, 
+    saveTasks,
+} from '@/data/dataSyncService';
+import { useTaskBatchManager } from '@/presentation/hooks/useTaskBatchManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -125,6 +131,19 @@ export const HomeScreen: React.FC = () => {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [profileImage, setProfileImage] = useState<string | null>(null);
 
+    // Use task batch manager to auto-generate tasks for long goals
+    const { checkAllGoals } = useTaskBatchManager({
+        autoCheckOnForeground: true,
+        onNewTasksGenerated: async (newTasks, goalId) => {
+            console.log('[HomeScreen] New tasks generated:', newTasks.length, 'for goal:', goalId);
+            // Reload data to show new tasks
+            await loadData();
+        },
+        onBatchComplete: (goalId) => {
+            console.log('[HomeScreen] All tasks generated for goal:', goalId);
+        },
+    });
+
     // Load profile image from cache
     const loadProfileImage = async () => {
         try {
@@ -137,20 +156,20 @@ export const HomeScreen: React.FC = () => {
         }
     };
 
-    // Load data
-    const loadData = async () => {
+    // Load data (uses sync service - local + Firestore)
+    const loadData = async (forceSync: boolean = false) => {
         // Always load profile image
         await loadProfileImage();
 
-        if (USE_LOCAL_DATA) {
-            try {
-                const localGoals = await getGoalsLocally();
-                const localTasks = await getTasksLocally();
-                setGoals(localGoals);
-                setTasks(localTasks);
-            } catch (error) {
-                console.error('[HomeScreen] Error loading data:', error);
-            }
+        try {
+            const [loadedGoals, loadedTasks] = await Promise.all([
+                getGoals(forceSync),
+                getTasks(forceSync),
+            ]);
+            setGoals(loadedGoals);
+            setTasks(loadedTasks);
+        } catch (error) {
+            console.error('[HomeScreen] Error loading data:', error);
         }
     };
 
@@ -166,7 +185,11 @@ export const HomeScreen: React.FC = () => {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadData();
+        // Force sync from Firestore on refresh
+        await loadData(true);
+        // Check if we need to generate more tasks for any goal
+        await checkAllGoals();
+        await loadData(); // Reload in case new tasks were generated
         setRefreshing(false);
     };
 
@@ -192,14 +215,11 @@ export const HomeScreen: React.FC = () => {
     const todayCompleted = todaysTasks.filter(t => t.status === 'COMPLETED').length;
     const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    // Toggle task completion
+    // Toggle task completion (syncs to Firestore)
     const toggleTaskStatus = async (task: Task) => {
         const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-
-        if (USE_LOCAL_DATA) {
-            await updateTaskStatusLocally(task.id, newStatus);
-            await loadData();
-        }
+        await updateTaskStatus(task.id, newStatus);
+        await loadData();
     };
 
     // Show task details modal

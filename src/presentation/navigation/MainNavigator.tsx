@@ -6,7 +6,7 @@ import { MainTabParamList, MainStackParamList } from './types';
 import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { Ionicons } from '@expo/vector-icons';
-import { getGoalsLocally } from '@/data';
+import { getGoals } from '@/data';
 import { LoadingScreen } from '@/presentation/components/common';
 
 // Screens
@@ -103,7 +103,7 @@ export const MainNavigator: React.FC = () => {
     useEffect(() => {
         const checkGoals = async () => {
             try {
-                const goals = await getGoalsLocally();
+                const goals = await getGoals();
                 setHasGoals(goals.length > 0);
             } catch (error) {
                 console.error('[MainNavigator] Error checking goals:', error);
