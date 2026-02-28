@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "DreamPath",
-    "slug": "DreamPath",
+    "name": "VividGoals",
+    "slug": "VividGoals",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,7 +18,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "8"
+      "buildNumber": "8",
+      "appleTeamId": "CLNUVH5GRA"
     },
     "android": {
       "adaptiveIcon": {
@@ -38,7 +39,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "d25b3f14-2932-448b-9d5c-52fab0b0bfc4"
+        "projectId": "9f089f18-99a6-4f95-ad32-1b8f98ec4bba"
       }
     },
     "owner": "kavindu_k"

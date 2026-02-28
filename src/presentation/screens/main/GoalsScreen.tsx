@@ -187,7 +187,7 @@ export const GoalsScreen: React.FC = () => {
         if (!isPro && goals.length >= 1) {
             Alert.alert(
                 'Upgrade to Pro',
-                'Free users can create 1 goal. Upgrade to Dreampath Pro for unlimited goals!',
+                'Free users can create 1 goal. Upgrade to VividGoals Pro for unlimited goals!',
                 [
                     { text: 'Not Now', style: 'cancel' },
                     { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },

@@ -1,5 +1,5 @@
 // src/services/aiPlanService.ts
-// Service to call the DreamPath AI API for generating personalized plans
+// Service to call the VividGoals AI API for generating personalized plans
 
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task, TaskStatus, TaskPriority } from '@/domain/entities/Task';

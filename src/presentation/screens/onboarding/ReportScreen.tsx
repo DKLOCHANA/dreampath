@@ -182,7 +182,7 @@ export const ReportScreen: React.FC = () => {
                             <Text style={styles.vsText}>VS</Text>
                         </View>
 
-                        {/* With DreamPath */}
+                        {/* With VividGoals */}
                         <View style={styles.statCard}>
                             <CircularProgress
                                 progress={analytics.successRate}

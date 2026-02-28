@@ -39,7 +39,7 @@ export function useRevenueCat() {
     if (restored) {
       Alert.alert(
         'Purchases Restored',
-        'Your Dreampath Pro subscription has been restored successfully!',
+        'Your VividGoals Pro subscription has been restored successfully!',
       );
     } else {
       Alert.alert(

@@ -58,7 +58,7 @@ export const PaywallScreen: React.FC = () => {
     useEffect(() => {
         if (isPro) {
             Alert.alert(
-                'Welcome to Dreampath Pro!',
+                'Welcome to VividGoals Pro!',
                 'You now have access to all premium features.',
                 [{ text: 'Awesome!', onPress: () => navigation.goBack() }],
             );
@@ -173,7 +173,7 @@ export const PaywallScreen: React.FC = () => {
         if (restored) {
             Alert.alert(
                 'Purchases Restored',
-                'Your Dreampath Pro subscription has been restored!',
+                'Your VividGoals Pro subscription has been restored!',
             );
         } else {
             Alert.alert(

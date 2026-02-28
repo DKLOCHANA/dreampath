@@ -223,7 +223,7 @@ export const Report1Screen: React.FC = () => {
                             <Text style={styles.vsText}>VS</Text>
                         </View>
 
-                        {/* With DreamPath */}
+                        {/* With VividGoals */}
                         <View style={styles.statCard}>
                             <CircularProgress
                                 progress={analytics.successRate}
@@ -238,7 +238,7 @@ export const Report1Screen: React.FC = () => {
                                 </Text>
                             </CircularProgress>
                             <Text style={styles.statLabel}>Succeed</Text>
-                            <Text style={styles.statSubLabel}>with DreamPath</Text>
+                            <Text style={styles.statSubLabel}>with VividGoals</Text>
                         </View>
                     </View>
 

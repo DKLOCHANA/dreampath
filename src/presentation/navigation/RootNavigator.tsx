@@ -92,7 +92,7 @@ export const RootNavigator: React.FC = () => {
     }
 
     if (!isInitialized || isLoading) {
-        return <LoadingScreen message="Starting DreamPath..." />;
+        return <LoadingScreen message="Starting VividGoals..." />;
     }
 
     // Navigation logic:

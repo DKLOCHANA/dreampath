@@ -106,7 +106,7 @@ export const ProfileScreen: React.FC = () => {
             // Show explanation before requesting permission (App Store guideline)
             Alert.alert(
                 'Photo Access',
-                'DreamPath would like to access your photo library to let you choose a profile picture. Your photos are only used locally on this device.',
+                'VividGoals would like to access your photo library to let you choose a profile picture. Your photos are only used locally on this device.',
                 [
                     { text: 'Not Now', style: 'cancel' },
                     {
@@ -134,7 +134,7 @@ export const ProfileScreen: React.FC = () => {
         if (existingStatus !== 'granted') {
             Alert.alert(
                 'Camera Access',
-                'DreamPath would like to access your camera to take a profile picture.',
+                'VividGoals would like to access your camera to take a profile picture.',
                 [
                     { text: 'Not Now', style: 'cancel' },
                     {
@@ -296,7 +296,7 @@ export const ProfileScreen: React.FC = () => {
                             onPress: () => {
                                 if (Platform.OS === 'ios') {
                                     // On iOS, we can't directly open settings, but we can inform the user
-                                    Alert.alert('Settings', 'Please go to Settings > DreamPath > Notifications to enable notifications.');
+                                    Alert.alert('Settings', 'Please go to Settings > VividGoals > Notifications to enable notifications.');
                                 }
                             }
                         },
@@ -322,7 +322,7 @@ export const ProfileScreen: React.FC = () => {
             // Note: We can't programmatically disable notifications, user must do it in settings
             Alert.alert(
                 'Disable Notifications',
-                'To disable notifications, please go to your device Settings and turn off notifications for DreamPath.',
+                'To disable notifications, please go to your device Settings and turn off notifications for VividGoals.',
                 [{ text: 'OK' }]
             );
         }
@@ -440,7 +440,7 @@ export const ProfileScreen: React.FC = () => {
                                     <Ionicons name="diamond" size={28} color="#fff" />
                                 </View>
                                 <View style={styles.premiumTextContainer}>
-                                    <Text style={styles.premiumTitle}>Dreampath Pro</Text>
+                                    <Text style={styles.premiumTitle}>VividGoals Pro</Text>
                                     <Text style={styles.premiumDescription}>
                                         All premium features unlocked
                                     </Text>

@@ -757,7 +757,7 @@ export const AnalyticsScreen: React.FC = () => {
                     </LinearGradient>
                     <Text style={styles.premiumGateTitle}>Premium Feature</Text>
                     <Text style={styles.premiumGateDescription}>
-                        Advanced Analytics & AI Insights are available exclusively for Dreampath Pro subscribers.
+                        Advanced Analytics & AI Insights are available exclusively for VividGoals Pro subscribers.
                     </Text>
                     <TouchableOpacity
                         style={styles.premiumGateButton}

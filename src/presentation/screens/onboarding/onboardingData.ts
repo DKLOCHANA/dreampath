@@ -47,7 +47,7 @@ export interface OnboardingData {
 
 export const onboardingData: OnboardingData = {
     welcomeScreen: {
-        logo: "DreamPath",
+        logo: "VividGoals",
         slogan: "Transform Dreams into Reality",
         subtitle: "Your AI-powered success coach that turns big goals into daily wins",
         ctaButton: "Get Started"
@@ -66,7 +66,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "You're Not Alone in Feeling Lost",
                         painPoint: "67% of people with big goals fail because they lack a clear roadmap. Without knowing the first step, even the most motivated people stay stuck.",
-                        solution: "DreamPath's AI Success Coach Creates Your Custom Roadmap",
+                        solution: "VividGoals's AI Success Coach Creates Your Custom Roadmap",
                         benefits: [
                             "Get a personalized, step-by-step plan tailored to YOUR specific situation",
                             "AI analyzes your timeline, resources, and constraints to create realistic milestones",
@@ -86,7 +86,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "The Motivation Trap: Why Willpower Fails",
                         painPoint: "92% of New Year's resolutions fail by February. Relying on motivation alone is like driving with an empty gas tank - you won't get far.",
-                        solution: "DreamPath Builds Sustainable Systems, Not Temporary Motivation",
+                        solution: "VividGoals Builds Sustainable Systems, Not Temporary Motivation",
                         benefits: [
                             "Daily AI-generated tasks keep you engaged with fresh, achievable challenges",
                             "Smart progress tracking shows you're winning even on 'bad' days",
@@ -106,7 +106,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "You Don't Need More Time - You Need Smarter Time",
                         painPoint: "The average person wastes 2+ hours daily on unproductive activities while claiming 'no time' for their dreams. It's not about having time - it's about using it strategically.",
-                        solution: "DreamPath Maximizes Your Available Time, No Matter How Busy",
+                        solution: "VividGoals Maximizes Your Available Time, No Matter How Busy",
                         benefits: [
                             "AI considers YOUR actual schedule, responsibilities, and energy levels",
                             "Micro-tasks designed for your available time slots (even 15-minute windows)",
@@ -126,7 +126,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Self-Doubt is a Liar - Let Data Tell the Truth",
                         painPoint: "Impostor syndrome and self-doubt kill more dreams than actual failure ever could. Your brain is wired to protect you from risk, not help you grow.",
-                        solution: "DreamPath Gives You Objective, AI-Powered Feasibility Analysis",
+                        solution: "VividGoals Gives You Objective, AI-Powered Feasibility Analysis",
                         benefits: [
                             "AI assesses your goal against your actual resources, skills, and timeline",
                             "Get honest feedback with alternative approaches if needed - no false hope",
@@ -153,7 +153,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Your Brain is Not a Filing Cabinet",
                         painPoint: "Your brain has limited working memory - only 4-7 items. When you try to 'remember' your goals, tasks, and progress, you're using mental energy that should go toward ACHIEVING, not REMEMBERING.",
-                        solution: "DreamPath Becomes Your External Goal Management Brain",
+                        solution: "VividGoals Becomes Your External Goal Management Brain",
                         benefits: [
                             "Offload 100% of goal tracking to free up mental energy for execution",
                             "Never lose track of important tasks buried in your mental to-do list",
@@ -173,7 +173,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Static Tools Can't Keep Pace with Dynamic Life",
                         painPoint: "Life doesn't follow your perfect spreadsheet. When things change (and they always do), static tools become outdated burdens instead of helpful guides. You spend more time updating systems than making progress.",
-                        solution: "DreamPath Automatically Adapts to Your Changing Reality",
+                        solution: "VividGoals Automatically Adapts to Your Changing Reality",
                         benefits: [
                             "AI adjusts your plan when life throws curveballs - no manual replanning needed",
                             "Instant insights and analytics that would take hours to calculate manually",
@@ -193,7 +193,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "You Can't Improve What You Don't Measure",
                         painPoint: "Without tracking, you have no idea if you're making progress or just staying busy. Most people vastly overestimate how much they're doing and underestimate how long things take. This leads to frustration and quitting.",
-                        solution: "DreamPath Shows You Exactly Where You Stand, Every Day",
+                        solution: "VividGoals Shows You Exactly Where You Stand, Every Day",
                         benefits: [
                             "See real progress metrics - no more guessing if you're getting closer",
                             "Identify what's actually working vs. what's wasting time",
@@ -213,7 +213,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Generic Apps Fail Because They're Not Built for YOUR Goals",
                         painPoint: "To-do apps are for tasks. Habit trackers are for routines. Project managers are for teams. None of these were designed for BIG PERSONAL GOALS that require strategy, adaptation, and long-term commitment.",
-                        solution: "DreamPath is Purpose-Built for Ambitious Personal Achievement",
+                        solution: "VividGoals is Purpose-Built for Ambitious Personal Achievement",
                         benefits: [
                             "Not just tracking - full AI-powered strategic planning and daily guidance",
                             "Adapts to your goal type (career, business, fitness, financial, creative)",
@@ -222,7 +222,7 @@ export const onboardingData: OnboardingData = {
                         ],
                         transformation: "From tool frustration → The last goal app you'll ever need",
                         emotionalHook: "Stop collecting productivity apps. Start collecting achievements.",
-                        socialProof: "94% of users say DreamPath is the first goal app that 'gets it'"
+                        socialProof: "94% of users say VividGoals is the first goal app that 'gets it'"
                     }
                 }
             ]
@@ -240,7 +240,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Obstacles Are Inevitable - Your Response Isn't",
                         painPoint: "The difference between people who achieve goals and those who don't isn't fewer obstacles - it's better obstacle management. One setback shouldn't mean total derailment, but without a resilient system, it often does.",
-                        solution: "DreamPath Builds Resilience Into Your Plan From Day One",
+                        solution: "VividGoals Builds Resilience Into Your Plan From Day One",
                         benefits: [
                             "AI identifies potential obstacles before they hit and creates mitigation plans",
                             "When setbacks happen, get instant alternative strategies instead of giving up",
@@ -260,7 +260,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Opportunity Without Focus is Just Expensive Distraction",
                         painPoint: "Your brain loves novelty and dopamine hits from 'new.' But goal achievement requires sustained focus. The person who chases two rabbits catches neither. Every pivot means starting over.",
-                        solution: "DreamPath Keeps You Locked On Target While Honoring Your Nature",
+                        solution: "VividGoals Keeps You Locked On Target While Honoring Your Nature",
                         benefits: [
                             "Daily reminders of WHY this goal matters - reconnect to your deeper purpose",
                             "Visualize the cost of switching - see exactly how much progress you'd lose",
@@ -280,7 +280,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "You Overestimate What You Can Do in a Week, Underestimate a Year",
                         painPoint: "We live in an instant gratification world, but meaningful goals take time. When you can't SEE progress daily, your brain thinks nothing is happening - even when it is. This perception gap kills persistence.",
-                        solution: "DreamPath Makes Invisible Progress Visible and Meaningful",
+                        solution: "VividGoals Makes Invisible Progress Visible and Meaningful",
                         benefits: [
                             "Micro-progress tracking shows daily wins even when the big goal is months away",
                             "Growth graphs prove you're moving faster than it 'feels'",
@@ -300,7 +300,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Urgency Always Beats Importance Without a System",
                         painPoint: "Your inbox will always have emails. Your calendar will always have meetings. Daily urgencies will ALWAYS try to crowd out your important goals. Without protection, your dreams become 'someday' projects that never happen.",
-                        solution: "DreamPath Protects Your Goal Time Like a Personal Bodyguard",
+                        solution: "VividGoals Protects Your Goal Time Like a Personal Bodyguard",
                         benefits: [
                             "Daily task notifications ensure your goal gets attention even on crazy days",
                             "AI schedules goal work based on YOUR real available time slots",
@@ -327,7 +327,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Your Family's Future Depends on Decisions You Make Today",
                         painPoint: "Every month without progress toward financial freedom is another month of stress, another month of 'what ifs,' another month your family depends on a system that might not be there for them. Time is the one resource you can't get back.",
-                        solution: "DreamPath Turns Financial Goals Into Systematic Wealth Building",
+                        solution: "VividGoals Turns Financial Goals Into Systematic Wealth Building",
                         benefits: [
                             "Break down big financial targets into achievable daily money actions",
                             "Track multiple income streams, investments, and wealth-building activities",
@@ -348,7 +348,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Your Self-Worth is Waiting for You to Claim It",
                         painPoint: "Every unfinished goal is a voice in your head saying 'you can't do hard things.' That voice gets louder with every quit, every 'someday,' every 'I tried.' The only way to silence it is to FINISH what you start.",
-                        solution: "DreamPath Helps You Become the Person Who Finishes What They Start",
+                        solution: "VividGoals Helps You Become the Person Who Finishes What They Start",
                         benefits: [
                             "Finally complete something significant - end the cycle of starting and stopping",
                             "Build unshakeable confidence through documented progress and achievement",
@@ -369,7 +369,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Life is Too Short to Spend it Wishing You'd Tried",
                         painPoint: "You have ONE life. Right now, you're spending it on someone else's dream, someone else's schedule, someone else's definition of success. Every year that passes with your passion on hold is a year you'll never get back.",
-                        solution: "DreamPath Helps You Build the Life You Actually Want to Live",
+                        solution: "VividGoals Helps You Build the Life You Actually Want to Live",
                         benefits: [
                             "Transform vague passion into concrete, achievable steps",
                             "Balance practical reality with purpose-driven goals (you need both)",
@@ -390,7 +390,7 @@ export const onboardingData: OnboardingData = {
                     report: {
                         headline: "Growth is Not Automatic - It's Intentional",
                         painPoint: "You won't accidentally become the person you want to be. Without deliberate action, you'll be the same person next year, with the same limitations, same frustrations, same unrealized potential. Growth requires a system.",
-                        solution: "DreamPath Creates a Personal Evolution System Designed for You",
+                        solution: "VividGoals Creates a Personal Evolution System Designed for You",
                         benefits: [
                             "Set and track goals across multiple life dimensions (health, wealth, relationships, skills)",
                             "See your actual growth trajectory - not just how you 'feel' about progress",
@@ -410,7 +410,7 @@ export const onboardingData: OnboardingData = {
         headline: "Welcome to Your Transformation",
         subheadline: "You've taken the first step. Now let's make it count.",
         personalizedMessage: "Based on your answers, you're ready to overcome your obstacles and achieve your biggest goals.",
-        commitmentStatement: "DreamPath is your AI success partner that never sleeps, never judges, and never gives up on your goals.",
+        commitmentStatement: "VividGoals is your AI success partner that never sleeps, never judges, and never gives up on your goals.",
         features: [
             "Personalized AI Planning",
             "Daily Task Generation",

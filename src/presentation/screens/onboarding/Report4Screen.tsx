@@ -244,7 +244,7 @@ export const Report4Screen: React.FC = () => {
                             animValue={barAnim}
                         />
                         <ChartGroup
-                            title="WITH DREAMPATH"
+                            title="WITH VIVIDGOALS"
                             subtitle="Thriving"
                             data={analytics.withApp}
                             color={colors.success.main}

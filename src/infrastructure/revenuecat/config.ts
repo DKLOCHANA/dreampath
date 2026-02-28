@@ -1,7 +1,7 @@
 // src/infrastructure/revenuecat/config.ts
 
 /**
- * RevenueCat configuration for DreamPath
+ * RevenueCat configuration for VividGoals
  *
  * Uses EXPO_PUBLIC_APP_ENV to pick the right key:
  *   - "production" → production key
