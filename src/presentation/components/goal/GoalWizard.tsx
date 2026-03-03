@@ -29,6 +29,7 @@ import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { generatePlanWithAI, generateWeeklyPatternsWithAI, calculateGoalWeeks } from '@/services/aiPlanService';
 import { generateHybridTasks, generateDefaultPatterns } from '@/services/hybridTaskService';
 import { initializeBatchGenerationWithSync } from '@/services/taskBatchService';
+import { validateGoalContent, isBlockedResponse, handleBlockedApiResponse } from '@/services/contentFilterService';
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -191,6 +192,16 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
     // Handle next step
     const handleNext = () => {
         if (!validateStep()) return;
+
+        // Content safety check on step 1 (goal title/description)
+        if (currentStep === 1) {
+            console.log('[GoalWizard] Checking content safety for:', title);
+            if (!validateGoalContent(title, description)) {
+                console.log('[GoalWizard] Content blocked');
+                return; // Alert already shown by validateGoalContent
+            }
+            console.log('[GoalWizard] Content passed safety check');
+        }
 
         if (currentStep < WIZARD_TOTAL_STEPS) {
             setCurrentStep(currentStep + 1);

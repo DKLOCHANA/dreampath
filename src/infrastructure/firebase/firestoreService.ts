@@ -294,6 +294,32 @@ export const deleteTask = async (taskId: string): Promise<void> => {
     }
 };
 
+// Delete all tasks for a goal
+export const deleteTasksByGoal = async (goalId: string): Promise<number> => {
+    try {
+        const tasksRef = collection(db, 'tasks');
+        const q = query(tasksRef, where('goalId', '==', goalId));
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) {
+            console.log('[FirestoreService] No tasks found for goal:', goalId);
+            return 0;
+        }
+        
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        
+        console.log(`[FirestoreService] Deleted ${snapshot.size} tasks for goal:`, goalId);
+        return snapshot.size;
+    } catch (error) {
+        console.error('[FirestoreService] Error deleting tasks for goal:', error);
+        throw error;
+    }
+};
+
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================

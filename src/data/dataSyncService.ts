@@ -29,6 +29,8 @@ import {
     saveWizardDataToFirestore,
     getWizardDataFromFirestore,
     deleteWizardDataFromFirestore,
+    // Delete tasks by goal
+    deleteTasksByGoal as deleteTasksByGoalFromFirestore,
 } from '@/infrastructure/firebase/firestoreService';
 import {
     saveGoalLocally,
@@ -39,6 +41,7 @@ import {
     updateTaskStatusLocally,
     addTaskLocally,
     deleteTaskLocally,
+    deleteTasksByGoalLocally,
     setCurrentUserId,
 } from './localDataService';
 import {
@@ -173,20 +176,30 @@ export const getGoals = async (forceSync: boolean = false): Promise<Goal[]> => {
 
 /**
  * Delete a goal - deletes from both local and Firestore
+ * Also deletes all tasks associated with this goal
  */
 export const deleteGoal = async (goalId: string): Promise<void> => {
-    console.log('[DataSync] Deleting goal:', goalId);
+    console.log('[DataSync] Deleting goal and related tasks:', goalId);
     
-    // Delete locally first
+    // Delete tasks for this goal locally first
+    const deletedTasksCount = await deleteTasksByGoalLocally(goalId);
+    console.log(`[DataSync] Deleted ${deletedTasksCount} local tasks for goal:`, goalId);
+    
+    // Delete the goal locally
     await deleteGoalLocally(goalId);
     
     // Delete from Firestore if authenticated
     if (isAuthenticated()) {
         try {
+            const userId = getCurrentUserId();
+            
+            // Delete tasks from Firestore
+            await deleteTasksByGoalFromFirestore(goalId);
+            
+            // Delete the goal from Firestore
             await deleteGoalFromFirestore(goalId);
             
             // Also delete related batch data from Firestore
-            const userId = getCurrentUserId();
             if (userId) {
                 await Promise.all([
                     deleteBatchMetadataFromFirestore(userId, goalId),
@@ -195,7 +208,7 @@ export const deleteGoal = async (goalId: string): Promise<void> => {
                 ]);
             }
             
-            console.log('[DataSync] Goal deleted from Firestore:', goalId);
+            console.log('[DataSync] Goal and tasks deleted from Firestore:', goalId);
         } catch (error) {
             console.error('[DataSync] Failed to delete from Firestore:', error);
             await saveSyncStatus({ pendingSync: true });
@@ -230,6 +243,7 @@ export const saveTasks = async (tasks: Task[]): Promise<void> => {
 
 /**
  * Get all tasks - fetches from local and optionally syncs with Firestore
+ * Automatically filters out orphaned tasks (tasks with no matching goal)
  */
 export const getTasks = async (forceSync: boolean = false): Promise<Task[]> => {
     const userId = getCurrentUserId();
@@ -247,14 +261,33 @@ export const getTasks = async (forceSync: boolean = false): Promise<Task[]> => {
             await saveTasksLocally(mergedTasks);
             
             console.log('[DataSync] Tasks synced:', mergedTasks.length);
-            return mergedTasks;
+            
+            // Filter orphaned tasks
+            const goals = await getGoalsLocally();
+            const goalIds = new Set(goals.map(g => g.id));
+            const validTasks = mergedTasks.filter(t => goalIds.has(t.goalId));
+            
+            if (validTasks.length < mergedTasks.length) {
+                console.log(`[DataSync] Filtered out ${mergedTasks.length - validTasks.length} orphaned tasks`);
+            }
+            
+            return validTasks;
         } catch (error) {
             console.error('[DataSync] Failed to fetch tasks from Firestore:', error);
         }
     }
     
-    // Return local tasks
-    return getTasksLocally();
+    // Get local tasks and filter orphaned ones
+    const localTasks = await getTasksLocally();
+    const goals = await getGoalsLocally();
+    const goalIds = new Set(goals.map(g => g.id));
+    const validTasks = localTasks.filter(t => goalIds.has(t.goalId));
+    
+    if (validTasks.length < localTasks.length) {
+        console.log(`[DataSync] Filtered out ${localTasks.length - validTasks.length} orphaned tasks`);
+    }
+    
+    return validTasks;
 };
 
 /**
@@ -315,6 +348,31 @@ export const deleteTask = async (taskId: string): Promise<void> => {
             console.error('[DataSync] Failed to delete task from Firestore:', error);
         }
     }
+};
+
+/**
+ * Clean up orphaned tasks - removes tasks that have no matching goal
+ * Call this to permanently remove orphaned tasks from storage
+ */
+export const cleanupOrphanedTasks = async (): Promise<number> => {
+    console.log('[DataSync] Cleaning up orphaned tasks...');
+    
+    const allTasks = await getTasksLocally();
+    const goals = await getGoalsLocally();
+    const goalIds = new Set(goals.map(g => g.id));
+    
+    const validTasks = allTasks.filter(t => goalIds.has(t.goalId));
+    const orphanedCount = allTasks.length - validTasks.length;
+    
+    if (orphanedCount > 0) {
+        // Save only valid tasks back to local storage
+        await saveTasksLocally(validTasks);
+        console.log(`[DataSync] Removed ${orphanedCount} orphaned tasks`);
+    } else {
+        console.log('[DataSync] No orphaned tasks found');
+    }
+    
+    return orphanedCount;
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -734,8 +792,10 @@ export default {
     // Tasks
     saveTasks,
     getTasks,
+    addTask,
     updateTaskStatus,
     deleteTask,
+    cleanupOrphanedTasks,
     // Batch metadata
     saveBatchMetadata,
     getBatchMetadata,

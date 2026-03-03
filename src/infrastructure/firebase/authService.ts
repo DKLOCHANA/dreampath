@@ -19,7 +19,7 @@ import { useAuthStore } from '@/infrastructure/stores/authStore';
 // Helper to trigger data sync after login (runs in background)
 const triggerDataSync = async (): Promise<void> => {
     try {
-        const { syncFromFirestore, syncToFirestore } = await import('@/data/dataSyncService');
+        const { syncFromFirestore, syncToFirestore, cleanupOrphanedTasks } = await import('@/data/dataSyncService');
         console.log('[AuthService] Starting data sync after login...');
         
         // First pull data from Firestore to local
@@ -29,6 +29,12 @@ const triggerDataSync = async (): Promise<void> => {
         // Then push any local-only data to Firestore
         const pushResult = await syncToFirestore();
         console.log('[AuthService] Data pushed to Firestore:', pushResult);
+        
+        // Clean up any orphaned tasks
+        const cleanedUp = await cleanupOrphanedTasks();
+        if (cleanedUp > 0) {
+            console.log('[AuthService] Cleaned up orphaned tasks:', cleanedUp);
+        }
     } catch (error) {
         console.error('[AuthService] Data sync failed:', error);
         // Don't throw - sync failure shouldn't block login

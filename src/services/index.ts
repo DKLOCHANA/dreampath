@@ -4,6 +4,7 @@
 export * from './aiPlanService';
 export * from './hybridTaskService';
 export * from './taskBatchService';
+export * from './contentFilterService';
 
 // Default exports
 export { default as aiPlanService } from './aiPlanService';

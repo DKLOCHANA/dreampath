@@ -259,6 +259,21 @@ export const deleteTaskLocally = async (taskId: string): Promise<void> => {
     }
 };
 
+export const deleteTasksByGoalLocally = async (goalId: string): Promise<number> => {
+    try {
+        const key = getUserKey(STORAGE_KEYS.TASKS);
+        const tasks = await getTasksLocally();
+        const filtered = tasks.filter(t => t.goalId !== goalId);
+        const deletedCount = tasks.length - filtered.length;
+        await AsyncStorage.setItem(key, JSON.stringify(filtered));
+        console.log(`[LocalDataService] Deleted ${deletedCount} tasks for goal:`, goalId);
+        return deletedCount;
+    } catch (error) {
+        console.error('[LocalDataService] Error deleting tasks for goal:', error);
+        throw error;
+    }
+};
+
 // ============================================
 // Create Goal from Wizard Data
 // ============================================
@@ -408,6 +423,7 @@ export default {
     updateTaskStatusLocally,
     addTaskLocally,
     deleteTaskLocally,
+    deleteTasksByGoalLocally,
     completeOnboardingLocally,
     clearAllLocalData,
     getProfileImageKey,

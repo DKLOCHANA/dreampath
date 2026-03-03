@@ -195,6 +195,13 @@ export async function generatePlanWithAI(
         }
 
         if (!data.success || !data.plan) {
+            // Check if this is a content-blocked response
+            if ((data as any).blocked === true) {
+                const blockedError = new Error((data as any).message || 'This goal cannot be processed.');
+                (blockedError as any).blocked = true;
+                (blockedError as any).category = (data as any).category;
+                throw blockedError;
+            }
             throw new Error('Invalid response from AI service');
         }
 
@@ -406,6 +413,14 @@ export async function generateWeeklyPatternsWithAI(
         } catch (parseError) {
             console.warn('[AIService] Failed to parse weekly patterns response, using defaults');
             return generateDefaultPatterns(goal, wizardData, totalWeeks);
+        }
+
+        // Check if content was blocked
+        if ((data as any).blocked === true) {
+            const blockedError = new Error((data as any).message || 'This goal cannot be processed.');
+            (blockedError as any).blocked = true;
+            (blockedError as any).category = (data as any).category;
+            throw blockedError;
         }
 
         if (!data.success || !data.patterns || data.patterns.length === 0) {
