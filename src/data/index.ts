@@ -49,6 +49,8 @@ export {
     saveWizardDataToFirestore,
     getWizardDataFromFirestore,
     deleteWizardDataFromFirestore,
+    // Account deletion
+    deleteAllUserDataFromFirestore,
     // Utility
     syncLocalDataToFirestore,
 } from '@/infrastructure/firebase';

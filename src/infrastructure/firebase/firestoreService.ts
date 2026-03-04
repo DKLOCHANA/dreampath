@@ -594,3 +594,73 @@ export const deleteWizardDataFromFirestore = async (
         console.error('[FirestoreService] Error deleting wizard data:', error);
     }
 };
+
+// ============================================
+// DELETE ALL USER DATA (for account deletion)
+// ============================================
+
+export const deleteAllUserDataFromFirestore = async (userId: string): Promise<void> => {
+    try {
+        console.log('[FirestoreService] Starting deletion of all user data for:', userId);
+
+        // 1. Get all goals for the user
+        const goalsRef = collection(db, 'goals');
+        const goalsQuery = query(goalsRef, where('userId', '==', userId));
+        const goalsSnapshot = await getDocs(goalsQuery);
+        const goalIds = goalsSnapshot.docs.map(doc => doc.id);
+
+        // 2. Delete all tasks for the user
+        const tasksRef = collection(db, 'tasks');
+        const tasksQuery = query(tasksRef, where('userId', '==', userId));
+        const tasksSnapshot = await getDocs(tasksQuery);
+        
+        const batch1 = writeBatch(db);
+        tasksSnapshot.docs.forEach(taskDoc => {
+            batch1.delete(taskDoc.ref);
+        });
+        if (tasksSnapshot.docs.length > 0) {
+            await batch1.commit();
+            console.log('[FirestoreService] Deleted tasks:', tasksSnapshot.docs.length);
+        }
+
+        // 3. Delete all goals
+        const batch2 = writeBatch(db);
+        goalsSnapshot.docs.forEach(goalDoc => {
+            batch2.delete(goalDoc.ref);
+        });
+        if (goalsSnapshot.docs.length > 0) {
+            await batch2.commit();
+            console.log('[FirestoreService] Deleted goals:', goalsSnapshot.docs.length);
+        }
+
+        // 4. Delete batch metadata for all goals
+        for (const goalId of goalIds) {
+            await deleteBatchMetadataFromFirestore(userId, goalId);
+        }
+
+        // 5. Delete weekly patterns for all goals
+        for (const goalId of goalIds) {
+            await deleteWeeklyPatternsFromFirestore(userId, goalId);
+        }
+
+        // 6. Delete wizard data for all goals
+        for (const goalId of goalIds) {
+            await deleteWizardDataFromFirestore(userId, goalId);
+        }
+
+        // 7. Delete user document if exists
+        try {
+            const userRef = doc(db, 'users', userId);
+            await deleteDoc(userRef);
+            console.log('[FirestoreService] User document deleted');
+        } catch (error) {
+            // User document may not exist, that's okay
+            console.log('[FirestoreService] No user document to delete');
+        }
+
+        console.log('[FirestoreService] All user data deleted successfully');
+    } catch (error) {
+        console.error('[FirestoreService] Error deleting all user data:', error);
+        throw error;
+    }
+};

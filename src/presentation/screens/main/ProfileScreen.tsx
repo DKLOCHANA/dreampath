@@ -13,7 +13,7 @@ import {
     Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from 'firebase/auth';
+import { signOut, deleteUser } from 'firebase/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -30,7 +30,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
-import { getGoals, getTasks, USE_LOCAL_DATA, getProfileImageKey } from '@/data';
+import { getGoals, getTasks, USE_LOCAL_DATA, getProfileImageKey, clearAllLocalData, deleteAllUserDataFromFirestore } from '@/data';
 import { useRevenueCat } from '@/presentation/hooks/useRevenueCat';
 import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
@@ -361,6 +361,93 @@ export const ProfileScreen: React.FC = () => {
         );
     };
 
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'This will permanently delete your account and all associated data. This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete Account',
+                    style: 'destructive',
+                    onPress: () => {
+                        // Second confirmation
+                        Alert.alert(
+                            'Are you absolutely sure?',
+                            'All your goals, tasks, and progress will be permanently deleted. Type DELETE to confirm.',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'I understand, delete my account',
+                                    style: 'destructive',
+                                    onPress: performDeleteAccount,
+                                },
+                            ]
+                        );
+                    },
+                },
+            ]
+        );
+    };
+
+    const performDeleteAccount = async () => {
+        try {
+            // Check network connectivity
+            const isOnline = await checkConnectivityWithAlert({
+                customMessage: 'An internet connection is required to delete your account. Please check your connection and try again.',
+            });
+            if (!isOnline) return;
+
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                Alert.alert('Error', 'No user is currently signed in.');
+                return;
+            }
+
+            const userId = currentUser.uid;
+
+            // Show loading indicator
+            Alert.alert('Deleting Account', 'Please wait while we delete your account...');
+
+            try {
+                // 1. Delete all user data from Firestore
+                await deleteAllUserDataFromFirestore(userId);
+                console.log('Firestore data deleted');
+
+                // 2. Clear local storage
+                await clearAllLocalData();
+                console.log('Local data cleared');
+
+                // 3. Delete the Firebase Auth user
+                await deleteUser(currentUser);
+                console.log('Auth user deleted');
+
+                // 4. Logout from the app state
+                logout();
+
+                Alert.alert('Account Deleted', 'Your account has been successfully deleted.');
+            } catch (deleteError: any) {
+                console.error('Delete account error:', deleteError);
+                
+                // Handle re-authentication requirement
+                if (deleteError.code === 'auth/requires-recent-login') {
+                    Alert.alert(
+                        'Re-authentication Required',
+                        'For security reasons, please sign out and sign back in, then try deleting your account again.',
+                        [{ text: 'OK' }]
+                    );
+                } else if (isNetworkError(deleteError)) {
+                    Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+                } else {
+                    Alert.alert('Error', 'Failed to delete account. Please try again later.');
+                }
+            }
+        } catch (error: any) {
+            console.error('Delete account error:', error);
+            Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+        }
+    };
+
     const getInitials = (name: string) => {
         return name
             .split(' ')
@@ -522,6 +609,12 @@ export const ProfileScreen: React.FC = () => {
                     onPress={handleLogout}
                     fullWidth
                 />
+                <TouchableOpacity
+                    style={styles.deleteAccountButton}
+                    onPress={handleDeleteAccount}
+                >
+                    <Text style={styles.deleteAccountText}>Delete Account</Text>
+                </TouchableOpacity>
             </View>
             {/* Legal Links */}
             <View style={[styles.legalLinksContainer, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
@@ -843,6 +936,26 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.screenPadding,
         paddingVertical: spacing.md,
         backgroundColor: colors.background.secondary,
+        alignItems: 'center',
+    },
+
+    // Delete Account
+    deleteAccountButton: {
+        marginTop: spacing.md,
+        paddingVertical: spacing.buttonPaddingVertical,
+        paddingHorizontal: spacing.buttonPaddingHorizontal,
+        minHeight: 48,
+        width: '100%',
+        borderRadius: spacing.borderRadius.lg,
+        borderWidth: 2,
+        borderColor: colors.error.main,
+        backgroundColor: 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    deleteAccountText: {
+        ...typography.variants.button,
+        color: colors.error.main,
     },
 });
 
