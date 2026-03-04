@@ -30,6 +30,7 @@ import { getGoals, getTasks } from '@/data';
 import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
+import { isOnline } from '@/services/networkService';
 
 // ============ API CONFIG ============
 const API_BASE_URL = 'https://dreampath-api.vercel.app';
@@ -598,6 +599,22 @@ export const AnalyticsScreen: React.FC = () => {
                     console.log('Using cached AI insights from:', timestamp.toLocaleDateString());
                     return;
                 }
+            }
+
+            // Check network connectivity before API call
+            const hasInternet = await isOnline();
+            if (!hasInternet) {
+                // Try to use cached data when offline
+                const { insights: cachedInsights, timestamp } = await getCachedInsights();
+                if (cachedInsights) {
+                    setAiInsights(cachedInsights);
+                    setLastCacheDate(timestamp);
+                    setAiError('Showing cached insights. Connect to internet for fresh AI analysis.');
+                } else {
+                    setAiError('No internet connection. Connect to the internet to get AI insights.');
+                    setAiInsights(null);
+                }
+                return;
             }
 
             // Cache expired or force refresh - call API

@@ -21,6 +21,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { AuthStackParamList } from '@/presentation/navigation/types';
 import { signInWithEmail } from '@/infrastructure/firebase/authService';
+import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
 type LoginNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -55,13 +56,24 @@ export const LoginScreen: React.FC = () => {
         if (loading) return; // Prevent double-tap
         if (!validateForm()) return;
 
+        // Check network connectivity before attempting login
+        const isOnline = await checkConnectivityWithAlert({
+            onRetry: handleLogin,
+        });
+        if (!isOnline) return;
+
         setLoading(true);
 
         try {
             await signInWithEmail(email.trim(), password);
             // Navigation will be handled automatically by RootNavigator
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message || 'Failed to sign in. Please try again.');
+            // Check if it's a network error and show appropriate alert
+            if (isNetworkError(error)) {
+                Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+            } else {
+                Alert.alert('Login Failed', error.message || 'Failed to sign in. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

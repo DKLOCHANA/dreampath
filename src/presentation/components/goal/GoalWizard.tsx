@@ -30,6 +30,7 @@ import { generatePlanWithAI, generateWeeklyPatternsWithAI, calculateGoalWeeks } 
 import { generateHybridTasks, generateDefaultPatterns } from '@/services/hybridTaskService';
 import { initializeBatchGenerationWithSync } from '@/services/taskBatchService';
 import { validateGoalContent, isBlockedResponse, handleBlockedApiResponse } from '@/services/contentFilterService';
+import { isOnline, showNoInternetAlert } from '@/services/networkService';
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -279,7 +280,52 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
             
             console.log('[GoalWizard] Goal duration:', totalDays, 'days,', totalWeeks, 'weeks');
 
-            // Use hybrid approach for task generation
+            // Check network connectivity before AI generation
+            const hasInternet = await isOnline();
+            
+            // If offline, use default patterns directly without attempting AI calls
+            if (!hasInternet) {
+                console.log('[GoalWizard] No internet - using offline task generation');
+                setLoadingMessage('📋 Creating tasks offline...');
+                
+                try {
+                    const defaultPatterns = generateDefaultPatterns(newGoal, wizardData, totalWeeks);
+                    const { tasks } = await initializeBatchGenerationWithSync(
+                        newGoal,
+                        wizardData,
+                        defaultPatterns
+                    );
+
+                    if (tasks.length > 0) {
+                        await saveTasksWithSync(tasks);
+                        newGoal.metrics.totalTasks = tasks.length;
+                        await saveGoalWithSync(newGoal);
+                    }
+
+                    setLoadingMessage('');
+                    setIsSubmitting(false);
+
+                    Alert.alert(
+                        'No Internet Connection',
+                        `Your goal "${newGoal.title}" has been saved with ${tasks.length} tasks.\n\n` +
+                        `📶 Connect to the internet for AI-enhanced personalized plans!`,
+                        [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                    );
+                    return;
+                } catch (offlineError: any) {
+                    console.error('[GoalWizard] Offline generation failed:', offlineError.message);
+                    setLoadingMessage('');
+                    setIsSubmitting(false);
+                    Alert.alert(
+                        'Goal Created',
+                        `Your goal "${newGoal.title}" has been saved.\n\nTask generation failed - you can add tasks manually.`,
+                        [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                    );
+                    return;
+                }
+            }
+
+            // Use hybrid approach for task generation (online mode)
             try {
                 setLoadingMessage('🤖 AI is creating your personalized plan...');
                 console.log('[GoalWizard] Using hybrid task generation approach...');

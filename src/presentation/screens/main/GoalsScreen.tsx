@@ -33,6 +33,7 @@ import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
 import { GoalWizard, GoalWizardData } from '@/presentation/components/goal/GoalWizard';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
+import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.28; // ~1/4 of screen
@@ -210,12 +211,22 @@ export const GoalsScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            // Check network connectivity before delete
+                            const isOnline = await checkConnectivityWithAlert({
+                                customMessage: 'Unable to delete goal. Please check your internet connection and try again.',
+                            });
+                            if (!isOnline) return;
+
                             await deleteGoal(goalId);
                             await loadData();
                             console.log('[GoalsScreen] Goal deleted:', goalId);
-                        } catch (error) {
+                        } catch (error: any) {
                             console.error('[GoalsScreen] Error deleting goal:', error);
-                            Alert.alert('Error', 'Failed to delete goal. Please try again.');
+                            if (isNetworkError(error)) {
+                                Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+                            } else {
+                                Alert.alert('Error', 'Failed to delete goal. Please try again.');
+                            }
                         }
                     },
                 },

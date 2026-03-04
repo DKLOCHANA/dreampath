@@ -2,6 +2,7 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useSubscriptionStore, useIsPro } from '@/infrastructure/stores/subscriptionStore';
+import { checkConnectivityWithAlert } from '@/services/networkService';
 
 /**
  * Hook that provides convenient subscription helpers:
@@ -18,6 +19,13 @@ export function useRevenueCat() {
    * Only works in native builds (not Expo Go). Falls back gracefully.
    */
   const presentCustomerCenter = useCallback(async () => {
+    // Check network connectivity before opening customer center
+    const isOnline = await checkConnectivityWithAlert({
+      customMessage: 'An internet connection is required to manage your subscription.',
+      onRetry: presentCustomerCenter,
+    });
+    if (!isOnline) return;
+
     try {
       // Dynamically import to avoid crashes in environments where the UI module isn't available
       const RevenueCatUI = require('react-native-purchases-ui').default;
@@ -35,6 +43,13 @@ export function useRevenueCat() {
    * Restore purchases with user-facing feedback via Alert.
    */
   const handleRestorePurchases = useCallback(async () => {
+    // Check network connectivity before restoring purchases
+    const isOnline = await checkConnectivityWithAlert({
+      customMessage: 'An internet connection is required to restore purchases.',
+      onRetry: handleRestorePurchases,
+    });
+    if (!isOnline) return;
+
     const restored = await restorePurchases();
     if (restored) {
       Alert.alert(

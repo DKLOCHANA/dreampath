@@ -33,6 +33,7 @@ import { Task, TaskPriority, TaskDifficulty, TaskStatus } from '@/domain/entitie
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { getTasks, getGoals, updateTaskStatus, addTask, deleteTask, USE_LOCAL_DATA } from '@/data';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -197,12 +198,22 @@ export const TasksScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            // Check network connectivity before delete
+                            const isOnline = await checkConnectivityWithAlert({
+                                customMessage: 'Unable to delete task. Please check your internet connection and try again.',
+                            });
+                            if (!isOnline) return;
+
                             await deleteTask(taskId);
                             await loadData();
                             console.log('[TasksScreen] Task deleted:', taskId);
-                        } catch (error) {
+                        } catch (error: any) {
                             console.error('[TasksScreen] Error deleting task:', error);
-                            Alert.alert('Error', 'Failed to delete task. Please try again.');
+                            if (isNetworkError(error)) {
+                                Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+                            } else {
+                                Alert.alert('Error', 'Failed to delete task. Please try again.');
+                            }
                         }
                     },
                 },

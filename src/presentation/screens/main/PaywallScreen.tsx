@@ -22,6 +22,7 @@ import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore';
+import { checkConnectivityWithAlert } from '@/services/networkService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -155,6 +156,13 @@ export const PaywallScreen: React.FC = () => {
     }, []);
 
     const handlePurchase = async () => {
+        // Check network connectivity before purchase
+        const isOnline = await checkConnectivityWithAlert({
+            customMessage: 'An internet connection is required to complete your purchase. Please check your connection and try again.',
+            onRetry: handlePurchase,
+        });
+        if (!isOnline) return;
+
         const pkg = getPackageForPlan(selectedPlan);
 
         if (!pkg) {
@@ -170,6 +178,13 @@ export const PaywallScreen: React.FC = () => {
     };
 
     const handleRestore = async () => {
+        // Check network connectivity before restore
+        const isOnline = await checkConnectivityWithAlert({
+            customMessage: 'An internet connection is required to restore purchases. Please check your connection and try again.',
+            onRetry: handleRestore,
+        });
+        if (!isOnline) return;
+
         const restored = await restorePurchases();
         if (restored) {
             Alert.alert(

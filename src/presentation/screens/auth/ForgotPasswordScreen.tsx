@@ -21,6 +21,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { AuthStackParamList } from '@/presentation/navigation/types';
 import { resetPassword } from '@/infrastructure/firebase/authService';
+import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
 type ForgotPasswordNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
 
@@ -48,12 +49,23 @@ export const ForgotPasswordScreen: React.FC = () => {
     const handleResetPassword = async () => {
         if (!validateEmail()) return;
 
+        // Check network connectivity before attempting password reset
+        const isOnline = await checkConnectivityWithAlert({
+            onRetry: handleResetPassword,
+        });
+        if (!isOnline) return;
+
         setLoading(true);
         try {
             await resetPassword(email.trim());
             setSent(true);
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
+            // Check if it's a network error and show appropriate alert
+            if (isNetworkError(error)) {
+                Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+            } else {
+                Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

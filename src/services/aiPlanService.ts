@@ -4,6 +4,7 @@
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task, TaskStatus, TaskPriority } from '@/domain/entities/Task';
 import { GoalWizardData } from '@/presentation/components/goal/GoalWizard';
+import { isOnline, NetworkOfflineError } from '@/services/networkService';
 
 // ═══════════════════════════════════════════════════════════════
 // API CONFIGURATION
@@ -151,6 +152,13 @@ export async function generatePlanWithAI(
 
     try {
         console.log('[AIService] Sending request to API...');
+        
+        // Check network connectivity before API call
+        const hasInternet = await isOnline();
+        if (!hasInternet) {
+            console.log('[AIService] No internet connection');
+            throw new NetworkOfflineError('No internet connection. Please check your connection and try again.');
+        }
         
         // Call the API
         const response = await fetch(`${API_BASE_URL}/api/generate-plan`, {
@@ -385,6 +393,13 @@ export async function generateWeeklyPatternsWithAI(
 
     try {
         console.log('[AIService] Requesting weekly patterns from API...');
+        
+        // Check network connectivity before API call
+        const hasInternet = await isOnline();
+        if (!hasInternet) {
+            console.log('[AIService] No internet connection, using default patterns');
+            return generateDefaultPatterns(goal, wizardData, totalWeeks);
+        }
         
         const response = await fetch(`${API_BASE_URL}/api/generate-weekly-patterns`, {
             method: 'POST',

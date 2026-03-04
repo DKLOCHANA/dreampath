@@ -32,6 +32,7 @@ import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
 import { getGoals, getTasks, USE_LOCAL_DATA, getProfileImageKey } from '@/data';
 import { useRevenueCat } from '@/presentation/hooks/useRevenueCat';
+import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
 const PROFILE_IMAGE_KEY = '@dreampath_profile_image'; // Base key, will be made user-specific
 
@@ -337,11 +338,22 @@ export const ProfileScreen: React.FC = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            // Check network connectivity before logout
+                            const isOnline = await checkConnectivityWithAlert({
+                                customMessage: 'An internet connection is required to sign out. Please check your connection and try again.',
+                            });
+                            if (!isOnline) return;
+
                             // Don't clear local data - it's now user-specific and persists across sessions
                             await signOut(auth);
                             logout();
-                        } catch (error) {
+                        } catch (error: any) {
                             console.error('Logout error:', error);
+                            if (isNetworkError(error)) {
+                                Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+                            } else {
+                                Alert.alert('Error', 'Failed to sign out. Please try again.');
+                            }
                         }
                     },
                 },
@@ -500,6 +512,8 @@ export const ProfileScreen: React.FC = () => {
                 )}
             </View>
 
+            
+
             {/* Logout - Fixed at bottom */}
             <View style={styles.logoutContainer}>
                 <Button
@@ -508,6 +522,20 @@ export const ProfileScreen: React.FC = () => {
                     onPress={handleLogout}
                     fullWidth
                 />
+            </View>
+            {/* Legal Links */}
+            <View style={[styles.legalLinksContainer, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
+                <TouchableOpacity
+                    onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/privacy-policy/')}
+                >
+                    <Text style={styles.legalLinkText}>Privacy Policy</Text>
+                </TouchableOpacity>
+                <Text style={styles.legalSeparator}>•</Text>
+                <TouchableOpacity
+                    onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/terms-of-service/')}
+                >
+                    <Text style={styles.legalLinkText}>Terms of Service</Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -790,6 +818,24 @@ const styles = StyleSheet.create({
         color: colors.text.tertiary,
         textAlign: 'center',
         marginTop: spacing.xl,
+    },
+
+    // Legal Links
+    legalLinksContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+        gap: spacing.sm,
+    },
+    legalLinkText: {
+        ...typography.variants.caption,
+        color: colors.text.secondary,
+        textDecorationLine: 'underline',
+    },
+    legalSeparator: {
+        color: colors.text.tertiary,
+        fontSize: typography.fontSize.xs,
     },
 
     // Logout Container

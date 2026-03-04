@@ -38,6 +38,7 @@ import {
     saveTasks,
 } from '@/data/dataSyncService';
 import { useTaskBatchManager } from '@/presentation/hooks/useTaskBatchManager';
+import { isOnline, showNoInternetAlert } from '@/services/networkService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -185,6 +186,20 @@ export const HomeScreen: React.FC = () => {
 
     const onRefresh = async () => {
         setRefreshing(true);
+        
+        // Check network connectivity for sync
+        const hasInternet = await isOnline();
+        if (!hasInternet) {
+            // Load local data only when offline
+            await loadData(false);
+            setRefreshing(false);
+            showNoInternetAlert(
+                'Offline Mode',
+                'Showing cached data. Connect to the internet to sync your latest data.'
+            );
+            return;
+        }
+        
         // Force sync from Firestore on refresh
         await loadData(true);
         // Check if we need to generate more tasks for any goal

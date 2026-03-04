@@ -21,6 +21,7 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { AuthStackParamList } from '@/presentation/navigation/types';
 import { signUpWithEmail } from '@/infrastructure/firebase/authService';
+import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
 
 type RegisterNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -71,12 +72,23 @@ export const RegisterScreen: React.FC = () => {
     const handleRegister = async () => {
         if (!validateForm()) return;
 
+        // Check network connectivity before attempting registration
+        const isOnline = await checkConnectivityWithAlert({
+            onRetry: handleRegister,
+        });
+        if (!isOnline) return;
+
         setLoading(true);
         try {
             await signUpWithEmail(email.trim(), password, name.trim());
             // Navigation will be handled automatically by RootNavigator
         } catch (error: any) {
-            Alert.alert('Registration Failed', error.message || 'Failed to create account. Please try again.');
+            // Check if it's a network error and show appropriate alert
+            if (isNetworkError(error)) {
+                Alert.alert('No Internet Connection', 'Please check your internet connection and try again.');
+            } else {
+                Alert.alert('Registration Failed', error.message || 'Failed to create account. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
