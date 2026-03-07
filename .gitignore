@@ -47,3 +47,6 @@ yarn-error.*
 /android
 *.ipa
 
+/inspect_build
+/build
+

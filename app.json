@@ -18,7 +18,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "8",
+      "buildNumber": "12",
       "appleTeamId": "CLNUVH5GRA"
     },
     "android": {
@@ -39,7 +39,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "9f089f18-99a6-4f95-ad32-1b8f98ec4bba"
+        "projectId": "e47b8b5b-40f0-41e0-84df-06b838059ee0"
       }
     },
     "owner": "kavindu_k"
