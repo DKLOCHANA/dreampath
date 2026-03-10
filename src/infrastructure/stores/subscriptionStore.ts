@@ -18,6 +18,10 @@ interface SubscriptionState {
   customerInfo: CustomerInfo | null;
   /** Whether the user has the "Dreampath Pro" entitlement */
   isPro: boolean;
+  /** Whether the user ever had the "Dreampath Pro" entitlement (including expired) */
+  hasEverSubscribed: boolean;
+  /** Whether the user's subscription has expired (was pro, no longer active) */
+  isExpired: boolean;
   /** Current offering (contains available packages) */
   currentOffering: PurchasesOffering | null;
   /** Loading states */
@@ -46,12 +50,31 @@ const hasPro = (info: CustomerInfo | null): boolean => {
   return info.entitlements.active[REVENUECAT_CONFIG.entitlementId] !== undefined;
 };
 
+/** Check if the user ever had the "Dreampath Pro" entitlement (active or expired) */
+const everSubscribed = (info: CustomerInfo | null): boolean => {
+  if (!info) return false;
+  return info.entitlements.all[REVENUECAT_CONFIG.entitlementId] !== undefined;
+};
+
+/** Derive subscription status fields from CustomerInfo */
+const deriveSubscriptionStatus = (info: CustomerInfo | null) => {
+  const pro = hasPro(info);
+  const ever = everSubscribed(info);
+  return {
+    isPro: pro,
+    hasEverSubscribed: ever,
+    isExpired: ever && !pro,
+  };
+};
+
 // ============ Store ============
 
 export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
   isConfigured: false,
   customerInfo: null,
   isPro: false,
+  hasEverSubscribed: false,
+  isExpired: false,
   currentOffering: null,
   isLoading: false,
   isRestoring: false,
@@ -84,7 +107,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
       Purchases.addCustomerInfoUpdateListener((info) => {
         set({
           customerInfo: info,
-          isPro: hasPro(info),
+          ...deriveSubscriptionStatus(info),
         });
       });
 
@@ -94,7 +117,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
       set({
         isConfigured: true,
         customerInfo: info,
-        isPro: hasPro(info),
+        ...deriveSubscriptionStatus(info),
         isLoading: false,
       });
 
@@ -120,7 +143,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
       const info = await Purchases.getCustomerInfo();
       set({
         customerInfo: info,
-        isPro: hasPro(info),
+        ...deriveSubscriptionStatus(info),
       });
     } catch (error: any) {
       console.error('[RevenueCat] Refresh customer info error:', error);
@@ -154,7 +177,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
 
       set({
         customerInfo,
-        isPro: hasPro(customerInfo),
+        ...deriveSubscriptionStatus(customerInfo),
         isPurchasing: false,
       });
 
@@ -213,7 +236,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
 
       set({
         customerInfo: info,
-        isPro: hasPro(info),
+        ...deriveSubscriptionStatus(info),
         isRestoring: false,
       });
 
@@ -244,7 +267,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
       const { customerInfo } = await Purchases.logIn(appUserID);
       set({
         customerInfo,
-        isPro: hasPro(customerInfo),
+        ...deriveSubscriptionStatus(customerInfo),
       });
     } catch (error: any) {
       console.error('[RevenueCat] Login error:', error);
@@ -261,7 +284,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
       const info = await Purchases.logOut();
       set({
         customerInfo: info,
-        isPro: hasPro(info),
+        ...deriveSubscriptionStatus(info),
       });
     } catch (error: any) {
       console.error('[RevenueCat] Logout error:', error);
@@ -276,6 +299,12 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
 
 /** Whether the user has the Dreampath Pro entitlement */
 export const useIsPro = () => useSubscriptionStore((s) => s.isPro);
+
+/** Whether the user ever had the Dreampath Pro entitlement */
+export const useHasEverSubscribed = () => useSubscriptionStore((s) => s.hasEverSubscribed);
+
+/** Whether the user's subscription has expired */
+export const useIsExpired = () => useSubscriptionStore((s) => s.isExpired);
 
 /** Whether a purchase is currently in progress */
 export const useIsPurchasing = () => useSubscriptionStore((s) => s.isPurchasing);

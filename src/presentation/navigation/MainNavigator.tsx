@@ -8,6 +8,7 @@ import { typography } from '@/presentation/theme/typography';
 import { Ionicons } from '@expo/vector-icons';
 import { getGoals } from '@/data';
 import { LoadingScreen } from '@/presentation/components/common';
+import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore';
 
 // Screens
 import HomeScreen from '@/presentation/screens/main/HomeScreen';
@@ -16,6 +17,7 @@ import TasksScreen from '@/presentation/screens/main/TasksScreen';
 import ProfileScreen from '@/presentation/screens/main/ProfileScreen';
 import FirstGoalScreen from '@/presentation/screens/main/FirstGoalScreen';
 import PaywallScreen from '@/presentation/screens/main/PaywallScreen';
+import ExpiredSubscriptionScreen from '@/presentation/screens/main/ExpiredSubscriptionScreen';
 import AnalyticsScreen from '@/presentation/screens/main/AnalyticsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -99,6 +101,7 @@ const TabNavigator: React.FC = () => {
 // Main Navigator with goal check
 export const MainNavigator: React.FC = () => {
     const [hasGoals, setHasGoals] = useState<boolean | null>(null);
+    const isExpired = useSubscriptionStore((s) => s.isExpired);
 
     useEffect(() => {
         const checkGoals = async () => {
@@ -121,10 +124,22 @@ export const MainNavigator: React.FC = () => {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             {!hasGoals ? (
-                // No goals - show FirstGoal wizard first
                 <>
                     <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
                     <Stack.Screen name="Tabs" component={TabNavigator} />
+                    <Stack.Screen
+                        name="Paywall"
+                        component={PaywallScreen}
+                        options={{ presentation: 'modal' }}
+                    />
+                    <Stack.Screen name="ExpiredSubscription" component={ExpiredSubscriptionScreen} />
+                    <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+                </>
+            ) : isExpired ? (
+                <>
+                    <Stack.Screen name="ExpiredSubscription" component={ExpiredSubscriptionScreen} />
+                    <Stack.Screen name="Tabs" component={TabNavigator} />
+                    <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
                     <Stack.Screen
                         name="Paywall"
                         component={PaywallScreen}
@@ -133,7 +148,6 @@ export const MainNavigator: React.FC = () => {
                     <Stack.Screen name="Analytics" component={AnalyticsScreen} />
                 </>
             ) : (
-                // Has goals - go directly to tabs
                 <>
                     <Stack.Screen name="Tabs" component={TabNavigator} />
                     <Stack.Screen name="FirstGoal" component={FirstGoalScreen} />
@@ -142,6 +156,7 @@ export const MainNavigator: React.FC = () => {
                         component={PaywallScreen}
                         options={{ presentation: 'modal' }}
                     />
+                    <Stack.Screen name="ExpiredSubscription" component={ExpiredSubscriptionScreen} />
                     <Stack.Screen name="Analytics" component={AnalyticsScreen} />
                 </>
             )}

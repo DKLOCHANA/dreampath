@@ -27,7 +27,7 @@ import { spacing } from '@/presentation/theme/spacing';
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task } from '@/domain/entities/Task';
 import { getGoals, getTasks } from '@/data';
-import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
+import { useIsPro, useIsExpired } from '@/infrastructure/stores/subscriptionStore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
 import { isOnline } from '@/services/networkService';
@@ -171,6 +171,7 @@ const CircularProgress: React.FC<{
 export const AnalyticsScreen: React.FC = () => {
     const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
     const isPro = useIsPro();
+    const isExpired = useIsExpired();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -765,30 +766,36 @@ export const AnalyticsScreen: React.FC = () => {
                 <StatusBar style="dark" />
                 <View style={styles.premiumGateContainer}>
                     <LinearGradient
-                        colors={['#667eea', '#764ba2']}
+                        colors={isExpired ? ['#f59e0b', '#d97706'] : ['#667eea', '#764ba2']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.premiumGateIcon}
                     >
-                        <Ionicons name="lock-closed" size={36} color="#fff" />
+                        <Ionicons name={isExpired ? 'time-outline' : 'lock-closed'} size={36} color="#fff" />
                     </LinearGradient>
-                    <Text style={styles.premiumGateTitle}>Premium Feature</Text>
+                    <Text style={styles.premiumGateTitle}>
+                        {isExpired ? 'Subscription Expired' : 'Premium Feature'}
+                    </Text>
                     <Text style={styles.premiumGateDescription}>
-                        Advanced Analytics & AI Insights are available exclusively for VividGoals Pro subscribers.
+                        {isExpired
+                            ? 'Your subscription has expired. Reactivate to access Advanced Analytics & AI Insights.'
+                            : 'Advanced Analytics & AI Insights are available exclusively for VividGoals Pro subscribers.'}
                     </Text>
                     <TouchableOpacity
                         style={styles.premiumGateButton}
-                        onPress={() => navigation.navigate('Paywall')}
+                        onPress={() => navigation.navigate(isExpired ? 'ExpiredSubscription' : 'Paywall')}
                         activeOpacity={0.8}
                     >
                         <LinearGradient
-                            colors={['#667eea', '#764ba2']}
+                            colors={isExpired ? ['#f59e0b', '#d97706'] : ['#667eea', '#764ba2']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.premiumGateButtonGradient}
                         >
-                            <Ionicons name="diamond" size={18} color="#fff" />
-                            <Text style={styles.premiumGateButtonText}>Unlock with Pro</Text>
+                            <Ionicons name={isExpired ? 'refresh' : 'diamond'} size={18} color="#fff" />
+                            <Text style={styles.premiumGateButtonText}>
+                                {isExpired ? 'Reactivate' : 'Unlock with Pro'}
+                            </Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>

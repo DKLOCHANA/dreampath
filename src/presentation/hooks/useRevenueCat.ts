@@ -1,17 +1,21 @@
 // src/presentation/hooks/useRevenueCat.ts
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
-import { useSubscriptionStore, useIsPro } from '@/infrastructure/stores/subscriptionStore';
+import { useSubscriptionStore, useIsPro, useIsExpired, useHasEverSubscribed } from '@/infrastructure/stores/subscriptionStore';
 import { checkConnectivityWithAlert } from '@/services/networkService';
 
 /**
  * Hook that provides convenient subscription helpers:
  * - isPro: whether the user has the "Dreampath Pro" entitlement
+ * - isExpired: whether the user's subscription has lapsed
+ * - hasEverSubscribed: whether the user ever had a subscription
  * - handleRestorePurchases: restore previous purchases with user feedback
  * - presentCustomerCenter: opens RevenueCat Customer Center (native builds only)
  */
 export function useRevenueCat() {
   const isPro = useIsPro();
+  const isExpired = useIsExpired();
+  const hasEverSubscribed = useHasEverSubscribed();
   const { restorePurchases } = useSubscriptionStore();
 
   /**
@@ -66,6 +70,8 @@ export function useRevenueCat() {
 
   return {
     isPro,
+    isExpired,
+    hasEverSubscribed,
     presentCustomerCenter,
     handleRestorePurchases,
   };

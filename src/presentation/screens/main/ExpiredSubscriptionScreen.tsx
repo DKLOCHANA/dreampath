@@ -1,4 +1,4 @@
-// src/presentation/screens/main/PaywallScreen.tsx
+// src/presentation/screens/main/ExpiredSubscriptionScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
@@ -24,7 +24,7 @@ import { spacing } from '@/presentation/theme/spacing';
 import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore';
 import { checkConnectivityWithAlert } from '@/services/networkService';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type PlanType = 'annual' | 'monthly';
 
@@ -34,7 +34,7 @@ const FEATURES = [
     { icon: 'analytics', text: 'Advanced Analytics & Insights' },
 ];
 
-export const PaywallScreen: React.FC = () => {
+export const ExpiredSubscriptionScreen: React.FC = () => {
     const navigation = useNavigation();
     const [selectedPlan, setSelectedPlan] = useState<PlanType>('annual');
 
@@ -51,97 +51,83 @@ export const PaywallScreen: React.FC = () => {
         clearError,
     } = useSubscriptionStore();
 
-    // Fetch offerings when screen opens
     useEffect(() => {
         fetchOfferings();
     }, [fetchOfferings]);
 
-    // If the user becomes pro (purchase succeeded), dismiss the screen
     useEffect(() => {
         if (isPro) {
             Alert.alert(
-                'Welcome to VividGoals Pro!',
-                'You now have access to all premium features.',
+                'Welcome Back!',
+                'Your VividGoals Pro subscription has been reactivated.',
                 [{ text: 'Awesome!', onPress: () => navigation.goBack() }],
             );
         }
     }, [isPro]);
 
-    /**
-     * Find the matching package from the current offering.
-     * RevenueCat packages use identifiers like "$rc_monthly", "$rc_annual", "$rc_lifetime"
-     * or custom identifiers matching the product IDs you set up in the dashboard.
-     */
     const getPackageForPlan = useCallback((plan: PlanType): PurchasesPackage | undefined => {
         if (!currentOffering?.availablePackages) return undefined;
 
         const packages = currentOffering.availablePackages;
-        console.log('packages', packages);
 
         if (plan === 'annual') {
             return packages.find(
                 (p) =>
                     p.packageType === 'ANNUAL' ||
                     p.identifier === '$rc_annual' ||
-                    p.identifier === 'annual' ||
-                    p.identifier === 'dreampath_yearly'
+                    p.identifier === 'annual'
             );
         }
 
-        // monthly
         return packages.find(
             (p) =>
                 p.packageType === 'MONTHLY' ||
                 p.identifier === '$rc_monthly' ||
-                p.identifier === 'monthly' ||
-                p.identifier === 'dreampath_yearly'
+                p.identifier === 'monthly'
         );
     }, [currentOffering]);
 
-    /**
-     * Get the annual and monthly packages
-     */
     const annualPackage = getPackageForPlan('annual');
     const monthlyPackage = getPackageForPlan('monthly');
 
-    /**
-     * Calculate savings percentage for annual plan
-     */
     const savingsPercentage = useCallback(() => {
         if (!annualPackage || !monthlyPackage) return null;
-        
+
         const monthlyPrice = monthlyPackage.product.price;
         const annualPrice = annualPackage.product.price;
         const yearlyMonthlyPrice = monthlyPrice * 12;
-        
+
         if (yearlyMonthlyPrice <= 0) return null;
-        
+
         const savings = ((yearlyMonthlyPrice - annualPrice) / yearlyMonthlyPrice) * 100;
         return Math.round(savings);
     }, [annualPackage, monthlyPackage]);
 
-    /**
-     * Format price display using the live offering package.
-     * Plan cards only render when the package is available, so pkg is always defined here.
-     */
-    const formatPriceDisplay = useCallback((pkg: PurchasesPackage, planType: PlanType) => {
-        const priceString = pkg.product.priceString;
-
-        if (planType === 'monthly') {
+    const formatPriceDisplay = useCallback((pkg: PurchasesPackage | undefined, planType: PlanType) => {
+        if (!pkg) {
             return {
-                title: '1-Week Free Trial',
-                price: `then ${priceString} per month`,
+                title: planType === 'annual' ? 'Annual plan' : 'Monthly plan',
+                price: planType === 'annual' ? 'US$49.99 per year' : 'US$7.99 per month',
+            };
+        }
+
+        const { product } = pkg;
+        const priceString = product.priceString;
+
+        if (planType === 'annual') {
+            return {
+                title: 'Annual plan',
+                price: `${priceString} per year`,
             };
         }
 
         return {
-            title: '2-Week Free Trial',
-            price: `then ${priceString} per year`,
+            title: 'Monthly plan',
+            price: `${priceString} per month`,
         };
     }, []);
 
     const handlePurchase = async () => {
-        // Check network connectivity before purchase
         const isOnline = await checkConnectivityWithAlert({
             customMessage: 'An internet connection is required to complete your purchase. Please check your connection and try again.',
             onRetry: handlePurchase,
@@ -151,7 +137,6 @@ export const PaywallScreen: React.FC = () => {
         const pkg = getPackageForPlan(selectedPlan);
 
         if (!pkg) {
-            // Packages not available yet (e.g. Sandbox not configured, or Expo Go)
             Alert.alert(
                 'Not Available',
                 'Subscription packages are not available yet. Make sure you are running a native build with StoreKit configured.',
@@ -163,7 +148,6 @@ export const PaywallScreen: React.FC = () => {
     };
 
     const handleRestore = async () => {
-        // Check network connectivity before restore
         const isOnline = await checkConnectivityWithAlert({
             customMessage: 'An internet connection is required to restore purchases. Please check your connection and try again.',
             onRetry: handleRestore,
@@ -184,31 +168,16 @@ export const PaywallScreen: React.FC = () => {
         }
     };
 
-    /**
-     * Render error state with details for debugging in TestFlight
-     */
     const renderErrorState = () => {
         if (!error && !isLoading && !annualPackage && !monthlyPackage && currentOffering) {
-            // Offerings loaded but no packages found
             return (
                 <View style={styles.errorContainer}>
                     <Ionicons name="alert-circle" size={48} color={colors.error?.main || '#f44336'} />
                     <Text style={styles.errorTitle}>No Subscription Packages Available</Text>
                     <Text style={styles.errorMessage}>
-                        The subscription offerings are empty. This could mean:
-                        {'\n\n'}• Products are not configured in RevenueCat dashboard
-                        {'\n'}• Products are not set up in App Store Connect
-                        {'\n'}• Offering has no packages attached
+                        The subscription offerings are empty. Please try again later.
                     </Text>
-                    <View style={styles.debugBox}>
-                        <Text style={styles.debugLabel}>Debug Info:</Text>
-                        <Text style={styles.debugText} selectable>
-                            Offering ID: {currentOffering?.identifier || 'N/A'}
-                            {'\n'}Available Packages: {currentOffering?.availablePackages?.length || 0}
-                            {'\n'}Environment: {__DEV__ ? 'Development' : 'Production'}
-                        </Text>
-                    </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.retryButton}
                         onPress={fetchOfferings}
                     >
@@ -226,21 +195,7 @@ export const PaywallScreen: React.FC = () => {
                     <Text style={styles.errorMessage}>
                         We encountered an issue loading subscription options.
                     </Text>
-                    <View style={styles.debugBox}>
-                        <Text style={styles.debugLabel}>Error Details:</Text>
-                        <Text style={styles.debugText} selectable>
-                            {error}
-                        </Text>
-                    </View>
-                    <View style={styles.debugBox}>
-                        <Text style={styles.debugLabel}>Debug Info:</Text>
-                        <Text style={styles.debugText} selectable>
-                            Environment: {__DEV__ ? 'Development' : 'Production'}
-                            {'\n'}Packages Available: {currentOffering?.availablePackages?.length || 0}
-                            {'\n'}Has Offering: {currentOffering ? 'Yes' : 'No'}
-                        </Text>
-                    </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.retryButton}
                         onPress={() => {
                             clearError();
@@ -260,7 +215,6 @@ export const PaywallScreen: React.FC = () => {
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="dark" />
 
-            {/* Close Button */}
             <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => navigation.goBack()}
@@ -268,141 +222,124 @@ export const PaywallScreen: React.FC = () => {
                 <Ionicons name="close" size={28} color={colors.text.secondary} />
             </TouchableOpacity>
 
-            {/* Main Content */}
             <View style={styles.content}>
-                {/* Show error state if there's an error or no packages */}
                 {renderErrorState() ? (
                     renderErrorState()
                 ) : (
                     <>
-                        {/* Mascot / Illustration */}
                         <View style={styles.illustrationContainer}>
                             <LinearGradient
-                                colors={[colors.primary.light + '30', colors.accent.light + '30']}
+                                colors={['#fbbf2430', '#f59e0b30']}
                                 style={styles.illustrationBg}
                             >
                                 <View style={styles.mascotContainer}>
-                                    <Ionicons name="rocket" size={48} color={colors.primary.main} />
+                                    <Ionicons name="time-outline" size={48} color="#f59e0b" />
                                 </View>
                             </LinearGradient>
                         </View>
 
-                        {/* Title */}
-                        <Text style={styles.title}>Unlock Your Full Potential</Text>
+                        <Text style={styles.title}>Your Subscription Has Expired</Text>
+                        <Text style={styles.subtitle}>
+                            Reactivate to continue using all premium features
+                        </Text>
 
-                {/* Features List */}
-                <View style={styles.featuresContainer}>
-                    {FEATURES.map((feature, index) => (
-                        <View key={index} style={styles.featureRow}>
-                            <View style={styles.featureIconContainer}>
-                                <Ionicons
-                                    name={feature.icon as any}
-                                    size={18}
-                                    color={colors.primary.main}
-                                />
-                            </View>
-                            <Text style={styles.featureText}>{feature.text}</Text>
-                        </View>
-                    ))}
-                </View>
-
-                {/* Plan Options */}
-                <View style={styles.plansContainer}>
-                    {/* Annual Plan */}
-                    {annualPackage && (
-                        <TouchableOpacity
-                            style={[
-                                styles.planCard,
-                                selectedPlan === 'annual' && styles.planCardSelected,
-                            ]}
-                            onPress={() => setSelectedPlan('annual')}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.planContent}>
-                                <Text style={styles.planTitle}>
-                                    {formatPriceDisplay(annualPackage, 'annual').title}
-                                </Text>
-                                <Text style={styles.planPrice}>
-                                    {formatPriceDisplay(annualPackage, 'annual').price}
-                                </Text>
-                            </View>
-                            <View style={styles.planBadgesColumn}>
-                                {savingsPercentage() && (
-                                    <View style={[
-                                        styles.planBadge,
-                                        styles.planBadgeSavings,
-                                        selectedPlan === 'annual' && styles.planBadgeSavingsSelected,
-                                    ]}>
-                                        <Text style={[
-                                            styles.planBadgeText,
-                                            selectedPlan === 'annual' && styles.planBadgeTextSelected,
-                                        ]}>SAVE {savingsPercentage()}%</Text>
+                        <View style={styles.featuresContainer}>
+                            {FEATURES.map((feature, index) => (
+                                <View key={index} style={styles.featureRow}>
+                                    <View style={styles.featureIconContainer}>
+                                        <Ionicons
+                                            name={feature.icon as any}
+                                            size={18}
+                                            color={colors.primary.main}
+                                        />
                                     </View>
-                                )}
-                            </View>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Monthly Plan with Trial */}
-                    {monthlyPackage && (
-                        <TouchableOpacity
-                            style={[
-                                styles.planCard,
-                                selectedPlan === 'monthly' && styles.planCardSelected,
-                            ]}
-                            onPress={() => setSelectedPlan('monthly')}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.planContent}>
-                                <Text style={styles.planTitle}>
-                                    {formatPriceDisplay(monthlyPackage, 'monthly').title}
-                                </Text>
-                                <Text style={styles.planPrice}>
-                                    {formatPriceDisplay(monthlyPackage, 'monthly').price}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Loading state if packages aren't available yet */}
-                    {!annualPackage && !monthlyPackage && (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator color={colors.primary.main} size="small" />
-                            <Text style={styles.loadingText}>Loading subscription options...</Text>
+                                    <Text style={styles.featureText}>{feature.text}</Text>
+                                </View>
+                            ))}
                         </View>
-                    )}
-                </View>
 
-                {/* Spacer */}
-                <View style={{ flex: 1 }} />
+                        <View style={styles.plansContainer}>
+                            {annualPackage && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.planCard,
+                                        selectedPlan === 'annual' && styles.planCardSelected,
+                                    ]}
+                                    onPress={() => setSelectedPlan('annual')}
+                                    activeOpacity={0.8}
+                                >
+                                    <View style={styles.planContent}>
+                                        <Text style={styles.planTitle}>
+                                            {formatPriceDisplay(annualPackage, 'annual').title}
+                                        </Text>
+                                        <Text style={styles.planPrice}>
+                                            {formatPriceDisplay(annualPackage, 'annual').price}
+                                        </Text>
+                                    </View>
+                                    {savingsPercentage() && (
+                                        <View style={[
+                                            styles.planBadge,
+                                            selectedPlan === 'annual' && styles.planBadgeSelected,
+                                        ]}>
+                                            <Text style={[
+                                                styles.planBadgeText,
+                                                selectedPlan === 'annual' && styles.planBadgeTextSelected,
+                                            ]}>SAVE {savingsPercentage()}%</Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            )}
 
-                {/* CTA Button */}
-                <TouchableOpacity
-                    style={[styles.ctaButton, (isPurchasing || isRestoring) && { opacity: 0.7 }]}
-                    onPress={handlePurchase}
-                    activeOpacity={0.9}
-                    disabled={isPurchasing || isRestoring}
-                >
-                    <LinearGradient
-                        colors={[colors.primary.main, colors.primary.dark]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.ctaButtonGradient}
-                    >
-                        {isPurchasing ? (
-                            <ActivityIndicator color="#fff" size="small" />
-                        ) : (
-                            <Text style={styles.ctaButtonText}>
-                                {selectedPlan === 'annual'
-                                    ? 'Start 2-Week Free Trial'
-                                    : 'Start 1-Week Free Trial'
-                                }
-                            </Text>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
+                            {monthlyPackage && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.planCard,
+                                        selectedPlan === 'monthly' && styles.planCardSelected,
+                                    ]}
+                                    onPress={() => setSelectedPlan('monthly')}
+                                    activeOpacity={0.8}
+                                >
+                                    <View style={styles.planContent}>
+                                        <Text style={styles.planTitle}>
+                                            {formatPriceDisplay(monthlyPackage, 'monthly').title}
+                                        </Text>
+                                        <Text style={styles.planPrice}>
+                                            {formatPriceDisplay(monthlyPackage, 'monthly').price}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
 
-                        {/* Footer Links */}
+                            {!annualPackage && !monthlyPackage && (
+                                <View style={styles.loadingContainer}>
+                                    <ActivityIndicator color={colors.primary.main} size="small" />
+                                    <Text style={styles.loadingText}>Loading subscription options...</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={{ flex: 1 }} />
+
+                        <TouchableOpacity
+                            style={[styles.ctaButton, (isPurchasing || isRestoring) && { opacity: 0.7 }]}
+                            onPress={handlePurchase}
+                            activeOpacity={0.9}
+                            disabled={isPurchasing || isRestoring}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary.main, colors.primary.dark]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.ctaButtonGradient}
+                            >
+                                {isPurchasing ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <Text style={styles.ctaButtonText}>Reactivate</Text>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+
                         <View style={styles.footerLinks}>
                             <TouchableOpacity onPress={handleRestore}>
                                 <Text style={styles.footerLink}>Restore</Text>
@@ -443,7 +380,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 
-    // Illustration
     illustrationContainer: {
         marginBottom: spacing.md,
     },
@@ -461,23 +397,27 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background.primary,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: colors.primary.main,
+        shadowColor: '#f59e0b',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 12,
         elevation: 8,
     },
 
-    // Title
     title: {
         fontSize: typography.fontSize.xl,
         fontWeight: typography.fontWeight.bold as any,
         color: colors.text.primary,
         textAlign: 'center',
+        marginBottom: spacing.xs,
+    },
+    subtitle: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
         marginBottom: spacing.lg,
     },
 
-    // Features
     featuresContainer: {
         width: '100%',
         marginBottom: spacing.lg,
@@ -503,7 +443,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
 
-    // Plans
     plansContainer: {
         width: '100%',
         gap: spacing.md,
@@ -544,10 +483,6 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.secondary,
     },
-    planBadgesColumn: {
-        alignItems: 'flex-end',
-        gap: spacing.xs,
-    },
     planBadge: {
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs + 2,
@@ -556,12 +491,6 @@ const styles = StyleSheet.create({
     },
     planBadgeSelected: {
         backgroundColor: colors.primary.main,
-    },
-    planBadgeSavings: {
-        backgroundColor: colors.neutral[200],
-    },
-    planBadgeSavingsSelected: {
-        backgroundColor: colors.primary.dark,
     },
     planBadgeText: {
         fontSize: typography.fontSize.xs,
@@ -573,7 +502,6 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
 
-    // CTA Button
     ctaButton: {
         width: '100%',
         marginBottom: spacing.md,
@@ -594,7 +522,6 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
 
-    // Footer
     footerLinks: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -610,7 +537,6 @@ const styles = StyleSheet.create({
         color: colors.text.tertiary,
     },
 
-    // Loading
     loadingContainer: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -622,7 +548,6 @@ const styles = StyleSheet.create({
         marginTop: spacing.sm,
     },
 
-    // Error State
     errorContainer: {
         flex: 1,
         alignItems: 'center',
@@ -645,27 +570,6 @@ const styles = StyleSheet.create({
         marginBottom: spacing.lg,
         lineHeight: 20,
     },
-    debugBox: {
-        width: '100%',
-        backgroundColor: colors.neutral?.[100] || '#f5f5f5',
-        padding: spacing.md,
-        borderRadius: 8,
-        marginBottom: spacing.md,
-        borderWidth: 1,
-        borderColor: colors.neutral?.[200] || '#e0e0e0',
-    },
-    debugLabel: {
-        fontSize: typography.fontSize.xs,
-        fontWeight: typography.fontWeight.semibold as any,
-        color: colors.text.secondary,
-        marginBottom: spacing.xs,
-    },
-    debugText: {
-        fontSize: typography.fontSize.xs,
-        color: colors.text.primary,
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-        lineHeight: 16,
-    },
     retryButton: {
         marginTop: spacing.md,
         paddingHorizontal: spacing.xl,
@@ -685,4 +589,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default PaywallScreen;
+export default ExpiredSubscriptionScreen;

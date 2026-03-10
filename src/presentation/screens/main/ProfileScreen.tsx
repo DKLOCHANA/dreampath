@@ -49,6 +49,8 @@ export const ProfileScreen: React.FC = () => {
     // RevenueCat subscription state
     const {
         isPro,
+        isExpired,
+        hasEverSubscribed,
         presentCustomerCenter,
         handleRestorePurchases,
     } = useRevenueCat();
@@ -522,9 +524,8 @@ export const ProfileScreen: React.FC = () => {
                     </View>
                 </View>
 
-                {/* Premium Card — Upgrade OR Manage Subscription */}
+                {/* Premium Card — 3 states: Active / Expired / Fresh */}
                 {isPro ? (
-                    // Active subscriber: show manage subscription card
                     <View style={styles.premiumCardShadow}>
                         <LinearGradient
                             colors={['#10b981', '#059669', '#047857']}
@@ -546,7 +547,7 @@ export const ProfileScreen: React.FC = () => {
                             <View style={styles.premiumButtonShadow}>
                                 <TouchableOpacity
                                     style={styles.premiumButton}
-                                    onPress={presentCustomerCenter}
+                                    onPress={() => Linking.openURL('https://apps.apple.com/account/subscriptions')}
                                 >
                                     <Text style={[styles.premiumButtonText, { color: '#059669' }]}>
                                         Manage
@@ -555,8 +556,38 @@ export const ProfileScreen: React.FC = () => {
                             </View>
                         </LinearGradient>
                     </View>
+                ) : isExpired ? (
+                    <View style={styles.premiumCardShadow}>
+                        <LinearGradient
+                            colors={['#f59e0b', '#d97706', '#b45309']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.premiumCard}
+                        >
+                            <View style={styles.premiumContent}>
+                                <View style={styles.premiumIconContainer}>
+                                    <Ionicons name="time-outline" size={28} color="#fff" />
+                                </View>
+                                <View style={styles.premiumTextContainer}>
+                                    <Text style={styles.premiumTitle}>Subscription Expired</Text>
+                                    <Text style={styles.premiumDescription}>
+                                        Your premium access has ended
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.premiumButtonShadow}>
+                                <TouchableOpacity
+                                    style={styles.premiumButton}
+                                    onPress={() => navigation.navigate('ExpiredSubscription')}
+                                >
+                                    <Text style={[styles.premiumButtonText, { color: '#d97706' }]}>
+                                        Reactivate
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </View>
                 ) : (
-                    // Not subscribed: show upgrade card
                     <View style={styles.premiumCardShadow}>
                         <LinearGradient
                             colors={['#667eea', '#764ba2', '#f093fb']}
@@ -587,7 +618,7 @@ export const ProfileScreen: React.FC = () => {
                     </View>
                 )}
 
-                {/* Restore Purchases link — only show for non-subscribers */}
+                {/* Restore Purchases link — show for expired and fresh users */}
                 {!isPro && (
                     <TouchableOpacity
                         style={styles.restoreButton}
@@ -625,7 +656,7 @@ export const ProfileScreen: React.FC = () => {
                 </TouchableOpacity>
                 <Text style={styles.legalSeparator}>•</Text>
                 <TouchableOpacity
-                    onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/terms-of-service/')}
+                    onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
                 >
                     <Text style={styles.legalLinkText}>Terms of Service</Text>
                 </TouchableOpacity>

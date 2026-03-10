@@ -64,6 +64,7 @@ export type MainStackParamList = {
   FirstGoal: undefined;
   Tabs: NavigatorScreenParams<MainTabParamList>;
   Paywall: undefined;
+  ExpiredSubscription: undefined;
   Analytics: undefined;
 };
 
