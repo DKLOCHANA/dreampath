@@ -226,6 +226,15 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
     const handleSubmit = async () => {
         if (!validateStep()) return;
 
+        const online = await isOnline();
+        if (!online) {
+            showNoInternetAlert(
+                'No Internet Connection',
+                'An internet connection is required to create a goal. Please connect to the internet and try again.',
+            );
+            return;
+        }
+
         setIsSubmitting(true);
         setLoadingMessage('Saving your goal...');
 

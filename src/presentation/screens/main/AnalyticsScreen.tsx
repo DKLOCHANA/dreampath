@@ -27,6 +27,7 @@ import { spacing } from '@/presentation/theme/spacing';
 import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task } from '@/domain/entities/Task';
 import { getGoals, getTasks } from '@/data';
+import { getGoalsLocally, getTasksLocally } from '@/data/localDataService';
 import { useIsPro, useIsExpired } from '@/infrastructure/stores/subscriptionStore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';

@@ -286,6 +286,11 @@ export const TasksScreen: React.FC = () => {
             return;
         }
 
+        const online = await checkConnectivityWithAlert({
+            customMessage: 'An internet connection is required to create a task. Please connect to the internet and try again.',
+        });
+        if (!online) return;
+
         const newTask: Task = {
             id: `task-manual-${Date.now()}`,
             goalId: newTaskGoalId,
