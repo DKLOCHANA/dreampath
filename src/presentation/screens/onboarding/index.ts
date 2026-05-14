@@ -1,10 +1,33 @@
 // src/presentation/screens/onboarding/index.ts
-export { OnboardingWelcomeScreen } from './OnboardingWelcomeScreen';
-export { QuestionScreen } from './QuestionScreen';
-export { ReportScreen } from './ReportScreen';
-export { Report1Screen } from './Report1Screen';
-export { Report2Screen } from './Report2Screen';
-export { Report3Screen } from './Report3Screen';
-export { Report4Screen } from './Report4Screen';
-export { FinalWelcomeScreen } from './FinalWelcomeScreen';
-export { onboardingData } from './onboardingData';
+// VividGoals 30-screen onboarding flow (Welcome → Social Proof).
+// Screen 24 (in-app Review) is intentionally omitted; splash is handled by Expo
+// and Screen 31 (Paywall) lives downstream in MainNavigator.
+
+export { WelcomeScreen } from './WelcomeScreen';
+export { ProblemScreen } from './ProblemScreen';
+export { SolutionScreen } from './SolutionScreen';
+export { NameScreen } from './NameScreen';
+export { AgeScreen } from './AgeScreen';
+export { YearsScreen } from './YearsScreen';
+export { BombshellScreen } from './BombshellScreen';
+export { BridgeScreen } from './BridgeScreen';
+export { GoalAreaScreen } from './GoalAreaScreen';
+export { BlockersScreen } from './BlockersScreen';
+export { TrackingScreen } from './TrackingScreen';
+export { MomentumScreen } from './MomentumScreen';
+export { DailyTimeScreen } from './DailyTimeScreen';
+export { PayoffScreen } from './PayoffScreen';
+export { MirrorScreen } from './MirrorScreen';
+export { AnalyticsScreen } from './AnalyticsScreen';
+export { PhoneScreen } from './PhoneScreen';
+export { SecondMirrorScreen } from './SecondMirrorScreen';
+export { ChartScreen } from './ChartScreen';
+export { Checkin1Screen } from './Checkin1Screen';
+export { Checkin2Screen } from './Checkin2Screen';
+export { MiniPlanScreen } from './MiniPlanScreen';
+export { StreakScreen } from './StreakScreen';
+export { PlanLoadingScreen } from './PlanLoadingScreen';
+export { SummaryScreen } from './SummaryScreen';
+export { CostAnchorScreen } from './CostAnchorScreen';
+export { CommitmentScreen } from './CommitmentScreen';
+export { NotificationsScreen } from './NotificationsScreen';

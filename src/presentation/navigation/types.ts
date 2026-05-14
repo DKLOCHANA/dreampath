@@ -1,7 +1,6 @@
 // src/presentation/navigation/types.ts
 
 import { NavigatorScreenParams } from '@react-navigation/native';
-import { Answer } from '@/presentation/screens/onboarding/onboardingData';
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -10,16 +9,37 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
 };
 
-// Onboarding Stack
+// Onboarding Stack — VividGoals 30-screen flow (Welcome → Social Proof).
+// Splash is handled by Expo; Paywall lives downstream in the Main stack.
 export type OnboardingStackParamList = {
-  OnboardingWelcome: undefined;
-  Question: { questionIndex: number };
-  Report: { questionIndex: number; selectedAnswer: Answer };
-  Report1: { questionIndex: number; selectedAnswer: Answer };
-  Report2: { questionIndex: number; selectedAnswer: Answer };
-  Report3: { questionIndex: number; selectedAnswer: Answer };
-  Report4: { questionIndex: number; selectedAnswer: Answer };
-  FinalWelcome: undefined;
+  Welcome: undefined;
+  Problem: undefined;
+  Solution: undefined;
+  Name: undefined;
+  Age: undefined;
+  Years: undefined;
+  Bombshell: undefined;
+  Bridge: undefined;
+  GoalArea: undefined;
+  Blockers: undefined;
+  Tracking: undefined;
+  Momentum: undefined;
+  DailyTime: undefined;
+  Payoff: undefined;
+  Mirror: undefined;
+  Analytics: undefined;
+  Phone: undefined;
+  SecondMirror: undefined;
+  Chart: undefined;
+  Checkin1: undefined;
+  Checkin2: undefined;
+  MiniPlan: undefined;
+  Streak: undefined;
+  PlanLoading: undefined;
+  Summary: undefined;
+  CostAnchor: undefined;
+  Commitment: undefined;
+  Notifications: undefined;
 };
 
 // Main Tab Navigator

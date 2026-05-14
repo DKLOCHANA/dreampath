@@ -58,6 +58,8 @@ const firebaseUserToUser = async (firebaseUser: FirebaseUser): Promise<User> => 
         finances: userData?.finances,
         timeAvailability: userData?.timeAvailability,
         skills: userData?.skills,
+        subscriptionTier: userData?.subscriptionTier,
+        subscriptionExpiredAt: userData?.subscriptionExpiredAt?.toDate?.() || undefined,
         createdAt: userData?.createdAt?.toDate() || new Date(),
         updatedAt: userData?.updatedAt?.toDate() || new Date(),
     };
@@ -227,6 +229,33 @@ export const updateUserProfile = async (userId: string, updates: Partial<User>):
     } catch (error: any) {
         console.error('[AuthService] Update profile error:', error);
         throw new Error('Failed to update profile. Please try again.');
+    }
+};
+
+// Set the user's subscription tier (free | pro). Persists locally and in Firestore.
+// Non-throwing — subscription state is also tracked via RevenueCat, so a Firestore write failure
+// must not block the user's navigation.
+export const setSubscriptionTier = async (
+    userId: string,
+    tier: import('@/domain/entities/User').SubscriptionTier,
+): Promise<void> => {
+    const updates: Partial<User> = { subscriptionTier: tier };
+    if (tier === 'free') {
+        updates.subscriptionExpiredAt = new Date();
+    }
+
+    // Update local store immediately so UI reflects the change even if offline
+    useAuthStore.getState().updateUserProfile(updates);
+
+    try {
+        const userDocRef = doc(db, 'users', userId);
+        await updateDoc(userDocRef, {
+            ...updates,
+            updatedAt: serverTimestamp(),
+        });
+        console.log('[AuthService] Subscription tier set to', tier, 'for user:', userId);
+    } catch (error) {
+        console.warn('[AuthService] Failed to sync subscription tier to Firestore:', error);
     }
 };
 

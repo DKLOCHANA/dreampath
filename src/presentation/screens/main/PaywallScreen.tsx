@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PurchasesPackage } from 'react-native-purchases';
 
@@ -22,6 +22,8 @@ import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore';
+import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { setSubscriptionTier } from '@/infrastructure/firebase/authService';
 import { checkConnectivityWithAlert } from '@/services/networkService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -56,16 +58,33 @@ export const PaywallScreen: React.FC = () => {
         fetchOfferings();
     }, [fetchOfferings]);
 
+    const handleClose = useCallback(() => {
+        if (navigation.canGoBack()) {
+            navigation.goBack();
+            return;
+        }
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Tabs' as never }],
+            }),
+        );
+    }, [navigation]);
+
     // If the user becomes pro (purchase succeeded), dismiss the screen
     useEffect(() => {
         if (isPro) {
+            const userId = useAuthStore.getState().user?.id;
+            if (userId) {
+                setSubscriptionTier(userId, 'pro');
+            }
             Alert.alert(
                 'Welcome to VividGoals Pro!',
                 'You now have access to all premium features.',
-                [{ text: 'Awesome!', onPress: () => navigation.goBack() }],
+                [{ text: 'Awesome!', onPress: handleClose }],
             );
         }
-    }, [isPro]);
+    }, [isPro, handleClose]);
 
     /**
      * Find the matching package from the current offering.
@@ -263,7 +282,7 @@ export const PaywallScreen: React.FC = () => {
             {/* Close Button */}
             <TouchableOpacity
                 style={styles.closeButton}
-                onPress={() => navigation.goBack()}
+                onPress={handleClose}
             >
                 <Ionicons name="close" size={28} color={colors.text.secondary} />
             </TouchableOpacity>

@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PurchasesPackage } from 'react-native-purchases';
 
@@ -22,6 +22,8 @@ import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore';
+import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { setSubscriptionTier } from '@/infrastructure/firebase/authService';
 import { checkConnectivityWithAlert } from '@/services/networkService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -55,15 +57,37 @@ export const ExpiredSubscriptionScreen: React.FC = () => {
         fetchOfferings();
     }, [fetchOfferings]);
 
+    const goToHome = useCallback(() => {
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Tabs' as never }],
+            }),
+        );
+    }, [navigation]);
+
+    const handleClose = useCallback(async () => {
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) {
+            // Fire-and-forget: persist tier locally and in Firestore. Navigation must not wait on the network.
+            setSubscriptionTier(userId, 'free');
+        }
+        goToHome();
+    }, [goToHome]);
+
     useEffect(() => {
         if (isPro) {
+            const userId = useAuthStore.getState().user?.id;
+            if (userId) {
+                setSubscriptionTier(userId, 'pro');
+            }
             Alert.alert(
                 'Welcome Back!',
                 'Your VividGoals Pro subscription has been reactivated.',
-                [{ text: 'Awesome!', onPress: () => navigation.goBack() }],
+                [{ text: 'Awesome!', onPress: goToHome }],
             );
         }
-    }, [isPro]);
+    }, [isPro, goToHome]);
 
     const getPackageForPlan = useCallback((plan: PlanType): PurchasesPackage | undefined => {
         if (!currentOffering?.availablePackages) return undefined;
@@ -217,7 +241,7 @@ export const ExpiredSubscriptionScreen: React.FC = () => {
 
             <TouchableOpacity
                 style={styles.closeButton}
-                onPress={() => navigation.goBack()}
+                onPress={handleClose}
             >
                 <Ionicons name="close" size={28} color={colors.text.secondary} />
             </TouchableOpacity>

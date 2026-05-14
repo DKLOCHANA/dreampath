@@ -105,10 +105,24 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
 
       // Listen for customer info changes (e.g. subscription renewals, cancellations)
       Purchases.addCustomerInfoUpdateListener((info) => {
+        const status = deriveSubscriptionStatus(info);
+        const prevPro = get().isPro;
         set({
           customerInfo: info,
-          ...deriveSubscriptionStatus(info),
+          ...status,
         });
+        // Sync tier upgrades to Firestore on transition false -> true.
+        // Downgrades to 'free' are recorded only when the user dismisses the expired-paywall,
+        // so we don't auto-write 'free' here.
+        if (!prevPro && status.isPro) {
+          import('@/infrastructure/stores/authStore').then(({ useAuthStore }) => {
+            const userId = useAuthStore.getState().user?.id;
+            if (!userId) return;
+            import('@/infrastructure/firebase/authService').then(({ setSubscriptionTier }) => {
+              setSubscriptionTier(userId, 'pro');
+            });
+          });
+        }
       });
 
       // Fetch initial customer info

@@ -35,6 +35,8 @@ export interface UserSkills {
   improvementAreas?: string[];
 }
 
+export type SubscriptionTier = 'free' | 'pro';
+
 export interface User {
   id: string;
   email: string;
@@ -45,6 +47,8 @@ export interface User {
   timeAvailability?: UserTime;
   skills?: UserSkills;
   onboardingCompleted: boolean;
+  subscriptionTier?: SubscriptionTier;
+  subscriptionExpiredAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -7,6 +7,7 @@ export const colors = {
     light: '#A78BFA',
     dark: '#5B21B6',
     contrast: '#FFFFFF',
+    background: '#F3EBFF', // Soft purple tint for active/selected states
   },
   
   // Secondary Colors - Complementary Purple
@@ -107,6 +108,13 @@ export const colors = {
     indigo: '#6366F1',
     pink: '#EC4899',
     cyan: '#06B6D4',
+  },
+
+  // Streak/Fire (used on Day-1 streak hero)
+  streak: {
+    main: '#F97316',
+    dark: '#DC2626',
+    glow: 'rgba(249, 115, 22, 0.5)',
   },
 } as const;
 
