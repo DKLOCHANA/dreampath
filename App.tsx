@@ -8,6 +8,10 @@ import RootNavigator from './src/presentation/navigation/RootNavigator';
 import { ErrorBoundary } from './src/presentation/components/common/ErrorBoundary';
 import { useSubscriptionStore } from './src/infrastructure/stores/subscriptionStore';
 import { useAuthStore } from './src/infrastructure/stores/authStore';
+import { initializeNotificationHandler, handleAppLaunch } from './src/services/notificationService';
+
+// Configure notification display behavior before any notification can arrive
+initializeNotificationHandler();
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -53,6 +57,11 @@ function useRevenueCatSetup() {
 
 function AppContent() {
   useRevenueCatSetup();
+
+  // Reset the 12-hour reengagement window on every launch
+  useEffect(() => {
+    handleAppLaunch();
+  }, []);
 
   return (
     <NavigationContainer>

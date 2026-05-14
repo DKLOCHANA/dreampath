@@ -1,6 +1,6 @@
 // src/presentation/screens/onboarding/NotificationsScreen.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +16,7 @@ import { typography } from '@/presentation/theme/typography';
 import { shadows } from '@/presentation/theme/shadows';
 import { useOnboardingStore } from '@/infrastructure/stores/onboardingStore';
 import { RootStackParamList } from '@/presentation/navigation/types';
+import { saveNotificationsEnabled, scheduleReengagementNotification } from '@/services/notificationService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -31,6 +32,23 @@ export const NotificationsScreen: React.FC = () => {
 
     const handleAllow = async () => {
         try {
+            const { status: currentStatus } = await Notifications.getPermissionsAsync();
+
+            if (currentStatus === 'denied') {
+                // iOS won't re-show the system prompt after denial — inform and let them proceed
+                setAnswer('notificationsAllowed', false);
+                await saveNotificationsEnabled(false);
+                Alert.alert(
+                    'Notifications Blocked',
+                    'Enable notifications for VividGoals in your device Settings to receive goal reminders.',
+                    [
+                        { text: 'Not Now', style: 'cancel' },
+                        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                    ],
+                );
+                return; // finally still runs and calls exitToAuth
+            }
+
             const { status } = await Notifications.requestPermissionsAsync({
                 ios: {
                     allowAlert: true,
@@ -38,7 +56,14 @@ export const NotificationsScreen: React.FC = () => {
                     allowSound: true,
                 },
             });
-            setAnswer('notificationsAllowed', status === 'granted');
+            const granted = status === 'granted';
+            setAnswer('notificationsAllowed', granted);
+            if (granted) {
+                await saveNotificationsEnabled(true);
+                await scheduleReengagementNotification();
+            } else {
+                await saveNotificationsEnabled(false);
+            }
         } catch (error) {
             // Permission flow errored — proceed without blocking onboarding.
             console.warn('[Notifications] permission request failed', error);
@@ -50,6 +75,7 @@ export const NotificationsScreen: React.FC = () => {
 
     const handleSkip = () => {
         setAnswer('notificationsAllowed', false);
+        saveNotificationsEnabled(false); // fire-and-forget, non-critical
         exitToAuth();
     };
 

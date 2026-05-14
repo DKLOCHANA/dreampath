@@ -2,7 +2,7 @@
   "expo": {
     "name": "VividGoals",
     "slug": "VividGoals",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "12",
+      "buildNumber": "15",
       "appleTeamId": "CLNUVH5GRA"
     },
     "android": {
@@ -35,13 +35,20 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#5B21B6",
+          "sounds": []
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "e47b8b5b-40f0-41e0-84df-06b838059ee0"
+        "projectId": "d15088ee-1b27-4b8f-8ee1-2fba80273a60"
       }
-    },
-    "owner": "kavindu_k"
+    }
   }
 }

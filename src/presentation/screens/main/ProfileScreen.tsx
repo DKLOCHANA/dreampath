@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Alert,
     Switch,
+    ScrollView,
     Platform,
     Image,
     ActionSheetIOS,
@@ -30,6 +31,13 @@ import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { auth } from '@/infrastructure/firebase/config';
+import {
+    getNotificationsEnabled,
+    saveNotificationsEnabled,
+    requestPermissionsWithRationale,
+    scheduleReengagementNotification,
+    cancelReengagementNotification,
+} from '@/services/notificationService';
 import { getGoals, getTasks, USE_LOCAL_DATA, getProfileImageKey, clearAllLocalData, deleteAllUserDataFromFirestore } from '@/data';
 import { useRevenueCat } from '@/presentation/hooks/useRevenueCat';
 import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
@@ -268,64 +276,28 @@ export const ProfileScreen: React.FC = () => {
         }
     };
 
-    // Check notification permission status
+    // Check both system permission and user's in-app preference
     const checkNotificationPermission = async () => {
         const { status } = await Notifications.getPermissionsAsync();
-        setNotificationsEnabled(status === 'granted');
+        const enabled = await getNotificationsEnabled();
+        setNotificationsEnabled(status === 'granted' && enabled);
     };
 
     // Handle notification toggle
     const handleNotificationToggle = async (value: boolean) => {
         if (value) {
-            // Request permission
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
-
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
-            }
-
-            if (finalStatus !== 'granted') {
-                Alert.alert(
-                    'Permission Required',
-                    'To receive notifications, please enable them in your device settings.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                            text: 'Open Settings',
-                            onPress: () => {
-                                if (Platform.OS === 'ios') {
-                                    // On iOS, we can't directly open settings, but we can inform the user
-                                    Alert.alert('Settings', 'Please go to Settings > VividGoals > Notifications to enable notifications.');
-                                }
-                            }
-                        },
-                    ]
-                );
-                setNotificationsEnabled(false);
+            const granted = await requestPermissionsWithRationale();
+            if (!granted) {
+                setNotificationsEnabled(false); // snap switch back if permission was not granted
                 return;
             }
-
+            await saveNotificationsEnabled(true);
+            await scheduleReengagementNotification();
             setNotificationsEnabled(true);
-            // Configure notification handler
-            Notifications.setNotificationHandler({
-                handleNotification: async () => ({
-                    shouldShowAlert: true,
-                    shouldPlaySound: true,
-                    shouldSetBadge: true,
-                    shouldShowBanner: true,
-                    shouldShowList: true,
-                }),
-            });
         } else {
+            await saveNotificationsEnabled(false);
+            await cancelReengagementNotification();
             setNotificationsEnabled(false);
-            // Note: We can't programmatically disable notifications, user must do it in settings
-            Alert.alert(
-                'Disable Notifications',
-                'To disable notifications, please go to your device Settings and turn off notifications for VividGoals.',
-                [{ text: 'OK' }]
-            );
         }
     };
 
@@ -463,7 +435,10 @@ export const ProfileScreen: React.FC = () => {
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark" />
 
-            <View style={styles.contentContainer}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.contentContainer}
+            >
                 {/* Profile Header with Profile Picture */}
                 <View style={styles.profileHeader}>
                     <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
@@ -628,7 +603,30 @@ export const ProfileScreen: React.FC = () => {
                         <Text style={styles.restoreButtonText}>Restore Purchases</Text>
                     </TouchableOpacity>
                 )}
-            </View>
+
+                {/* Preferences */}
+                <View style={styles.settingsCard}>
+                    <Text style={styles.settingsSectionTitle}>Preferences</Text>
+                    <View style={styles.settingsRow}>
+                        <View style={styles.settingsRowLeft}>
+                            <View style={[styles.settingsIconBg, { backgroundColor: '#ede9fe' }]}>
+                                <Ionicons name="notifications-outline" size={18} color="#7c3aed" />
+                            </View>
+                            <View style={styles.settingsTextGroup}>
+                                <Text style={styles.settingsRowLabel}>Reminders</Text>
+                                <Text style={styles.settingsRowSub}>Nudge if inactive for 12 hours</Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={notificationsEnabled}
+                            onValueChange={handleNotificationToggle}
+                            trackColor={{ false: colors.neutral[200], true: colors.primary.main + '80' }}
+                            thumbColor={notificationsEnabled ? colors.primary.main : colors.neutral[400]}
+                            ios_backgroundColor={colors.neutral[200]}
+                        />
+                    </View>
+                </View>
+            </ScrollView>
 
             
 
@@ -671,10 +669,10 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background.secondary,
     },
     contentContainer: {
-        flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: spacing.screenPadding,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.md,
     },
 
     // Profile Header
@@ -900,6 +898,61 @@ const styles = StyleSheet.create({
     restoreButtonText: {
         fontSize: typography.fontSize.xs,
         color: colors.text.secondary,
+    },
+
+    // Settings / Preferences card
+    settingsCard: {
+        width: '100%',
+        backgroundColor: colors.background.primary,
+        borderRadius: 16,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        marginTop: spacing.md,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.07,
+        shadowRadius: 6,
+        elevation: 2,
+    },
+    settingsSectionTitle: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: '600' as any,
+        color: colors.text.tertiary,
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+        marginBottom: spacing.sm,
+    },
+    settingsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: spacing.xs,
+    },
+    settingsRowLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        gap: spacing.sm,
+    },
+    settingsIconBg: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    settingsTextGroup: {
+        flex: 1,
+    },
+    settingsRowLabel: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600' as any,
+        color: colors.text.primary,
+    },
+    settingsRowSub: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.tertiary,
+        marginTop: 1,
     },
 
     // Menu Card Shadow Wrapper
