@@ -15,6 +15,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firest
 import { auth, db } from './config';
 import { User } from '@/domain/entities/User';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { logCompleteRegistration } from '@/services/appsflyerService';
 
 // Helper to trigger data sync after login (runs in background)
 const triggerDataSync = async (): Promise<void> => {
@@ -65,23 +66,26 @@ const firebaseUserToUser = async (firebaseUser: FirebaseUser): Promise<User> => 
     };
 };
 
-// Create user document in Firestore
-const createUserDocument = async (firebaseUser: FirebaseUser, additionalData?: Partial<User>): Promise<void> => {
+// Create user document in Firestore. Returns true when a new doc was
+// created (i.e. this is the user's first sign-in) so callers can fire
+// one-time signup-side effects like the AppsFlyer registration event.
+const createUserDocument = async (firebaseUser: FirebaseUser, additionalData?: Partial<User>): Promise<boolean> => {
     const userDocRef = doc(db, 'users', firebaseUser.uid);
     const userDoc = await getDoc(userDocRef);
 
-    if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName || additionalData?.displayName || '',
-            photoURL: firebaseUser.photoURL || null,
-            onboardingCompleted: false,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            ...additionalData,
-        });
-        console.log('[AuthService] User document created:', firebaseUser.uid);
-    }
+    if (userDoc.exists()) return false;
+
+    await setDoc(userDocRef, {
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName || additionalData?.displayName || '',
+        photoURL: firebaseUser.photoURL || null,
+        onboardingCompleted: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        ...additionalData,
+    });
+    console.log('[AuthService] User document created:', firebaseUser.uid);
+    return true;
 };
 
 // Sign up with email and password
@@ -93,13 +97,16 @@ export const signUpWithEmail = async (email: string, password: string, displayNa
         // Update display name
         await updateProfile(firebaseUser, { displayName });
 
-        // Create Firestore document
+        // Email signup always creates a new account, so the doc is always new.
         await createUserDocument(firebaseUser, { displayName });
 
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed up:', user.email);
+
+        logCompleteRegistration('email');
+
         return user;
     } catch (error: any) {
         console.error('[AuthService] Sign up error:', error);
@@ -136,16 +143,18 @@ export const signInWithGoogle = async (idToken: string): Promise<User> => {
         const firebaseUser = userCredential.user;
 
         // Create user document if doesn't exist
-        await createUserDocument(firebaseUser);
+        const isNewUser = await createUserDocument(firebaseUser);
 
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed in with Google:', user.email);
-        
+
+        if (isNewUser) logCompleteRegistration('google');
+
         // Sync data from Firestore after login
         triggerDataSync();
-        
+
         return user;
     } catch (error: any) {
         console.error('[AuthService] Google sign in error:', error);
@@ -165,16 +174,18 @@ export const signInWithApple = async (identityToken: string, nonce: string): Pro
         const firebaseUser = userCredential.user;
 
         // Create user document if doesn't exist
-        await createUserDocument(firebaseUser);
+        const isNewUser = await createUserDocument(firebaseUser);
 
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed in with Apple:', user.email);
-        
+
+        if (isNewUser) logCompleteRegistration('apple');
+
         // Sync data from Firestore after login
         triggerDataSync();
-        
+
         return user;
     } catch (error: any) {
         console.error('[AuthService] Apple sign in error:', error);

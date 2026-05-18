@@ -8,6 +8,7 @@ import Purchases, {
 } from 'react-native-purchases';
 import { Alert, Platform } from 'react-native';
 import { REVENUECAT_CONFIG } from '@/infrastructure/revenuecat/config';
+import { syncAppsFlyerIdToRevenueCat } from '@/services/appsflyerService';
 
 // ============ Types ============
 
@@ -283,6 +284,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
         customerInfo,
         ...deriveSubscriptionStatus(customerInfo),
       });
+      await syncAppsFlyerIdToRevenueCat();
     } catch (error: any) {
       console.error('[RevenueCat] Login error:', error);
       set({ error: error.message || 'Failed to sync subscription account' });

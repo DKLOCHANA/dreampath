@@ -8,6 +8,7 @@ import RootNavigator from './src/presentation/navigation/RootNavigator';
 import { ErrorBoundary } from './src/presentation/components/common/ErrorBoundary';
 import { useSubscriptionStore } from './src/infrastructure/stores/subscriptionStore';
 import { useAuthStore } from './src/infrastructure/stores/authStore';
+import { initializeAppsFlyer, syncAppsFlyerIdToRevenueCat } from './src/services/appsflyerService';
 import { initializeNotificationHandler, handleAppLaunch } from './src/services/notificationService';
 
 // Configure notification display behavior before any notification can arrive
@@ -24,6 +25,27 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Initializes AppsFlyer early (install attribution + ATT wait window), then
+ * sets `$appsflyerId` on the RevenueCat subscriber when Purchases is ready.
+ * After Firebase login, `subscriptionStore.logIn` runs `syncAppsFlyerIdToRevenueCat`
+ * again so the identified customer carries the AppsFlyer ID.
+ */
+function useAppsFlyerSetup() {
+  const isConfigured = useSubscriptionStore((s) => s.isConfigured);
+
+  useEffect(() => {
+    initializeAppsFlyer().catch(() => {
+      // Non-critical — app continues without attribution
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isConfigured) return;
+    syncAppsFlyerIdToRevenueCat();
+  }, [isConfigured]);
+}
 
 /**
  * Initializes RevenueCat and syncs user identity when auth state changes.
@@ -56,6 +78,7 @@ function useRevenueCatSetup() {
 }
 
 function AppContent() {
+  useAppsFlyerSetup();
   useRevenueCatSetup();
 
   // Reset the 12-hour reengagement window on every launch

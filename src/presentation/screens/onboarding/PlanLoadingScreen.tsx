@@ -15,6 +15,7 @@ import {
     useOnboardingStore,
 } from '@/infrastructure/stores/onboardingStore';
 import { OnboardingStackParamList } from '@/presentation/navigation/types';
+import { requestTrackingPermission } from '@/services/appsflyerService';
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, 'PlanLoading'>;
 
@@ -37,6 +38,16 @@ export const PlanLoadingScreen: React.FC = () => {
     const spin = useRef(new Animated.Value(0)).current;
     const [percent, setPercent] = useState(0);
     const [lineIdx, setLineIdx] = useState(0);
+
+    // Request ATT here — the "Building your personalized plan" headline gives
+    // the user the contextual justification Apple requires before the system
+    // prompt appears. SKAN keeps working if they deny.
+    useEffect(() => {
+        const t = setTimeout(() => {
+            requestTrackingPermission();
+        }, 800);
+        return () => clearTimeout(t);
+    }, []);
 
     useEffect(() => {
         const listener = progress.addListener(({ value }) => {
