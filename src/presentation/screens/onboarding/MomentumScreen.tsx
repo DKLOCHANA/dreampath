@@ -23,7 +23,7 @@ export const MomentumScreen: React.FC = () => {
 
     return (
         <QuestionFrame
-            step={12}
+            step={13}
             label="QUESTION 4/6"
             title="When was the last time you felt real momentum on this?"
             options={OPTIONS}

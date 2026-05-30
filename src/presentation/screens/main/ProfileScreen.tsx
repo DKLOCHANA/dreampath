@@ -13,7 +13,7 @@ import {
     ActionSheetIOS,
     Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut, deleteUser } from 'firebase/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +25,6 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
 
-import { Card, Button } from '@/presentation/components/common';
 import { colors } from '@/presentation/theme/colors';
 import { typography } from '@/presentation/theme/typography';
 import { spacing } from '@/presentation/theme/spacing';
@@ -37,7 +36,11 @@ import {
     requestPermissionsWithRationale,
     scheduleReengagementNotification,
     cancelReengagementNotification,
+    scheduleTrialEndReminder,
+    cancelTrialEndReminder,
 } from '@/services/notificationService';
+import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore';
+import { REVENUECAT_CONFIG } from '@/infrastructure/revenuecat/config';
 import { getGoals, getTasks, USE_LOCAL_DATA, getProfileImageKey, clearAllLocalData, deleteAllUserDataFromFirestore } from '@/data';
 import { useRevenueCat } from '@/presentation/hooks/useRevenueCat';
 import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkService';
@@ -46,6 +49,7 @@ const PROFILE_IMAGE_KEY = '@dreampath_profile_image'; // Base key, will be made 
 
 export const ProfileScreen: React.FC = () => {
     const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+    const insets = useSafeAreaInsets();
     const { user, logout, updateUserProfile } = useAuthStore();
     const [displayName, setDisplayName] = useState(user?.displayName || 'User');
     const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -57,8 +61,6 @@ export const ProfileScreen: React.FC = () => {
     // RevenueCat subscription state
     const {
         isPro,
-        isExpired,
-        hasEverSubscribed,
         presentCustomerCenter,
         handleRestorePurchases,
     } = useRevenueCat();
@@ -283,7 +285,10 @@ export const ProfileScreen: React.FC = () => {
         setNotificationsEnabled(status === 'granted' && enabled);
     };
 
-    // Handle notification toggle
+    // Handle notification toggle — controls BOTH the reengagement ping and
+    // the trial-end reminder. Turning off here cancels everything; turning on
+    // re-schedules the trial-end reminder if the user is currently in their
+    // free trial period.
     const handleNotificationToggle = async (value: boolean) => {
         if (value) {
             const granted = await requestPermissionsWithRationale();
@@ -293,10 +298,22 @@ export const ProfileScreen: React.FC = () => {
             }
             await saveNotificationsEnabled(true);
             await scheduleReengagementNotification();
+
+            // Re-arm the trial-end reminder if user is still inside their trial
+            const info = useSubscriptionStore.getState().customerInfo;
+            const ent = info?.entitlements.active[REVENUECAT_CONFIG.entitlementId];
+            if (ent?.periodType === 'TRIAL' && ent.expirationDate) {
+                const expMs = new Date(ent.expirationDate).getTime();
+                if (!Number.isNaN(expMs)) {
+                    await scheduleTrialEndReminder(expMs);
+                }
+            }
+
             setNotificationsEnabled(true);
         } else {
             await saveNotificationsEnabled(false);
             await cancelReengagementNotification();
+            await cancelTrialEndReminder();
             setNotificationsEnabled(false);
         }
     };
@@ -432,73 +449,142 @@ export const ProfileScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar style="dark" />
+        <View style={styles.container}>
+            <StatusBar style="light" />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
+                contentContainerStyle={[styles.contentContainer, { paddingBottom: spacing.xl + insets.bottom }]}
             >
-                {/* Profile Header with Profile Picture */}
-                <View style={styles.profileHeader}>
-                    <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
-                        {profileImage ? (
-                            <Image source={{ uri: profileImage }} style={styles.avatarImage} />
-                        ) : (
-                            <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>
-                                    {getInitials(displayName || 'U')}
-                                </Text>
+                {/* Background decorative bubbles + outlined icons (behind everything) */}
+                <View pointerEvents="none" style={styles.bgDecorWrap}>
+                    <View style={[styles.bgBubble, styles.bgBubble1]} />
+                    <View style={[styles.bgBubble, styles.bgBubble2]} />
+                    <View style={[styles.bgBubble, styles.bgBubble3]} />
+                    <View style={[styles.bgBubble, styles.bgBubble4]} />
+                    <View style={[styles.bgBubble, styles.bgBubble5]} />
+                    <View style={[styles.bgBubble, styles.bgBubble6]} />
+                    <View style={[styles.bgBubble, styles.bgBubble7]} />
+
+                    <View style={[styles.bgIcon, styles.bgIcon1]}>
+                        <Ionicons name="trophy-outline" size={56} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon2]}>
+                        <Ionicons name="flag-outline" size={44} color={colors.accent.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon3]}>
+                        <Ionicons name="checkmark-done-circle-outline" size={64} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon4]}>
+                        <Ionicons name="star-outline" size={40} color={colors.accent.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon5]}>
+                        <Ionicons name="ribbon-outline" size={52} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon6]}>
+                        <Ionicons name="rocket-outline" size={48} color={colors.accent.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon7]}>
+                        <Ionicons name="medal-outline" size={44} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon8]}>
+                        <Ionicons name="bulb-outline" size={38} color={colors.accent.light} />
+                    </View>
+                </View>
+
+                {/* Gradient Hero Header — same pattern as other pages */}
+                <View style={[styles.heroSection, { paddingTop: insets.top + spacing.lg, paddingBottom: spacing.lg }]}>
+                    <LinearGradient
+                        colors={[colors.primary.dark, colors.primary.main, colors.accent.main]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                    {/* Decorative translucent circles */}
+                    <View style={[styles.decorCircle, styles.decorCircle1]} />
+                    <View style={[styles.decorCircle, styles.decorCircle2]} />
+                    <View style={[styles.decorCircle, styles.decorCircle3]} />
+                    <View style={[styles.decorCircle, styles.decorCircle4]} />
+
+                    <View style={styles.heroContent}>
+                        {/* Left: badge + name + email + pro */}
+                        <View style={styles.heroLeft}>
+                            <View style={styles.heroBadge}>
+                                <Ionicons name="person" size={14} color="#fff" />
+                                <Text style={styles.heroBadgeText}>MY PROFILE</Text>
                             </View>
-                        )}
-                        <View style={styles.cameraIcon}>
-                            <Ionicons name="camera" size={14} color="#fff" />
+                            <TouchableOpacity
+                                style={styles.heroNameRow}
+                                onPress={handleEditNameCrossPlatform}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.heroTitle} numberOfLines={1}>{displayName}</Text>
+                                <Ionicons name="pencil" size={15} color="rgba(255,255,255,0.85)" />
+                            </TouchableOpacity>
+                            <Text style={styles.heroSubtitle} numberOfLines={1}>{user?.email}</Text>
+                            {isPro && (
+                                <View style={styles.heroProBadge}>
+                                    <Ionicons name="diamond" size={11} color="#fff" />
+                                    <Text style={styles.heroProBadgeText}>PRO</Text>
+                                </View>
+                            )}
                         </View>
-                    </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.nameContainer}
-                        onPress={handleEditNameCrossPlatform}
-                    >
-                        <Text style={styles.userName}>{displayName}</Text>
-                        <Ionicons name="pencil" size={16} color={colors.text.secondary} />
-                    </TouchableOpacity>
-                    <Text style={styles.userEmail}>{user?.email}</Text>
-
-                    {/* Pro Badge — shown when user is subscribed */}
-                    {isPro && (
-                        <View style={styles.proBadge}>
-                            <Ionicons name="diamond" size={12} color="#fff" />
-                            <Text style={styles.proBadgeText}>PRO</Text>
-                        </View>
-                    )}
+                        {/* Right: avatar */}
+                        <TouchableOpacity
+                            style={styles.heroAvatarContainer}
+                            onPress={pickImage}
+                            activeOpacity={0.85}
+                        >
+                            <View style={styles.heroAvatarRing}>
+                                {profileImage ? (
+                                    <Image source={{ uri: profileImage }} style={styles.heroAvatarImage} />
+                                ) : (
+                                    <View style={styles.heroAvatarInner}>
+                                        <Text style={styles.heroAvatarText}>
+                                            {getInitials(displayName || 'U')}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                            <View style={styles.heroCameraIcon}>
+                                <Ionicons name="camera" size={12} color="#fff" />
+                            </View>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Stats Overview */}
-                <View style={styles.overviewContainer}>
-                    <View style={styles.overviewCard}>
-                        <View style={[styles.overviewIconBg, { backgroundColor: '#e0f2fe' }]}>
-                            <Ionicons name="trophy-outline" size={20} color="#0284c7" />
+                <View style={styles.contentPadded}>
+                    <View style={styles.overviewContainer}>
+                        <View style={styles.overviewCard}>
+                            <View style={[styles.overviewAccent, { backgroundColor: '#0284c7' }]} />
+                            <View style={[styles.overviewIconBg, { backgroundColor: '#e0f2fe' }]}>
+                                <Ionicons name="trophy-outline" size={20} color="#0284c7" />
+                            </View>
+                            <Text style={styles.overviewValue}>{goalsCount}</Text>
+                            <Text style={styles.overviewLabel}>Total Goals</Text>
                         </View>
-                        <Text style={styles.overviewValue}>{goalsCount}</Text>
-                        <Text style={styles.overviewLabel}>Total Goals</Text>
-                    </View>
-                    <View style={styles.overviewCard}>
-                        <View style={[styles.overviewIconBg, { backgroundColor: '#dcfce7' }]}>
-                            <Ionicons name="checkmark-done-outline" size={20} color="#16a34a" />
+                        <View style={styles.overviewCard}>
+                            <View style={[styles.overviewAccent, { backgroundColor: '#16a34a' }]} />
+                            <View style={[styles.overviewIconBg, { backgroundColor: '#dcfce7' }]}>
+                                <Ionicons name="checkmark-done-outline" size={20} color="#16a34a" />
+                            </View>
+                            <Text style={styles.overviewValue}>{tasksCompleted}</Text>
+                            <Text style={styles.overviewLabel}>Tasks Done</Text>
                         </View>
-                        <Text style={styles.overviewValue}>{tasksCompleted}</Text>
-                        <Text style={styles.overviewLabel}>Tasks Done</Text>
-                    </View>
-                    <View style={styles.overviewCard}>
-                        <View style={[styles.overviewIconBg, { backgroundColor: '#fef3c7' }]}>
-                            <Ionicons name="flame-outline" size={20} color="#d97706" />
+                        <View style={styles.overviewCard}>
+                            <View style={[styles.overviewAccent, { backgroundColor: '#d97706' }]} />
+                            <View style={[styles.overviewIconBg, { backgroundColor: '#fef3c7' }]}>
+                                <Ionicons name="flame-outline" size={20} color="#d97706" />
+                            </View>
+                            <Text style={styles.overviewValue}>{dayStreak}</Text>
+                            <Text style={styles.overviewLabel}>Daily Streak</Text>
                         </View>
-                        <Text style={styles.overviewValue}>{dayStreak}</Text>
-                        <Text style={styles.overviewLabel}>Daily Streak</Text>
                     </View>
                 </View>
 
+                <View style={styles.contentPadded}>
                 {/* Premium Card — 3 states: Active / Expired / Fresh */}
                 {isPro ? (
                     <View style={styles.premiumCardShadow}>
@@ -526,37 +612,6 @@ export const ProfileScreen: React.FC = () => {
                                 >
                                     <Text style={[styles.premiumButtonText, { color: '#059669' }]}>
                                         Manage
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
-                    </View>
-                ) : isExpired ? (
-                    <View style={styles.premiumCardShadow}>
-                        <LinearGradient
-                            colors={['#f59e0b', '#d97706', '#b45309']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.premiumCard}
-                        >
-                            <View style={styles.premiumContent}>
-                                <View style={styles.premiumIconContainer}>
-                                    <Ionicons name="time-outline" size={28} color="#fff" />
-                                </View>
-                                <View style={styles.premiumTextContainer}>
-                                    <Text style={styles.premiumTitle}>Subscription Expired</Text>
-                                    <Text style={styles.premiumDescription}>
-                                        Your premium access has ended
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={styles.premiumButtonShadow}>
-                                <TouchableOpacity
-                                    style={styles.premiumButton}
-                                    onPress={() => navigation.navigate('ExpiredSubscription')}
-                                >
-                                    <Text style={[styles.premiumButtonText, { color: '#d97706' }]}>
-                                        Reactivate
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -626,40 +681,71 @@ export const ProfileScreen: React.FC = () => {
                         />
                     </View>
                 </View>
+
+                {/* Legal */}
+                <View style={styles.settingsCard}>
+                    <Text style={styles.settingsSectionTitle}>Legal</Text>
+
+                    <TouchableOpacity
+                        style={styles.settingsRow}
+                        onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/privacy-policy/')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.settingsRowLeft}>
+                            <View style={[styles.settingsIconBg, { backgroundColor: '#dbeafe' }]}>
+                                <Ionicons name="shield-checkmark-outline" size={18} color="#2563eb" />
+                            </View>
+                            <View style={styles.settingsTextGroup}>
+                                <Text style={styles.settingsRowLabel}>Privacy Policy</Text>
+                                <Text style={styles.settingsRowSub}>How we handle your data</Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+
+                    <View style={styles.settingsDivider} />
+
+                    <TouchableOpacity
+                        style={styles.settingsRow}
+                        onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.settingsRowLeft}>
+                            <View style={[styles.settingsIconBg, { backgroundColor: '#fef3c7' }]}>
+                                <Ionicons name="document-text-outline" size={18} color="#d97706" />
+                            </View>
+                            <View style={styles.settingsTextGroup}>
+                                <Text style={styles.settingsRowLabel}>Terms of Service</Text>
+                                <Text style={styles.settingsRowSub}>Apple Standard EULA</Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Account Actions */}
+                <View style={styles.accountActions}>
+                    <TouchableOpacity
+                        style={styles.signOutButton}
+                        onPress={handleLogout}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="log-out-outline" size={18} color={colors.error.main} />
+                        <Text style={styles.signOutText}>Sign Out</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.deleteAccountButton}
+                        onPress={handleDeleteAccount}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="trash-outline" size={18} color="#fff" />
+                        <Text style={styles.deleteAccountText}>Delete Account</Text>
+                    </TouchableOpacity>
+                </View>
+                </View>
             </ScrollView>
-
-            
-
-            {/* Logout - Fixed at bottom */}
-            <View style={styles.logoutContainer}>
-                <Button
-                    title="Sign Out"
-                    variant="outline"
-                    onPress={handleLogout}
-                    fullWidth
-                />
-                <TouchableOpacity
-                    style={styles.deleteAccountButton}
-                    onPress={handleDeleteAccount}
-                >
-                    <Text style={styles.deleteAccountText}>Delete Account</Text>
-                </TouchableOpacity>
-            </View>
-            {/* Legal Links */}
-            <View style={[styles.legalLinksContainer, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
-                <TouchableOpacity
-                    onPress={() => Linking.openURL('https://dklochana.github.io/vividgoals-policies/privacy-policy/')}
-                >
-                    <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                </TouchableOpacity>
-                <Text style={styles.legalSeparator}>•</Text>
-                <TouchableOpacity
-                    onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
-                >
-                    <Text style={styles.legalLinkText}>Terms of Service</Text>
-                </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -669,26 +755,304 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background.secondary,
     },
     contentContainer: {
-        alignItems: 'center',
+        paddingBottom: spacing.xl,
+    },
+    contentPadded: {
         paddingHorizontal: spacing.screenPadding,
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.md,
     },
 
-    // Profile Header
-    profileHeader: {
-        alignItems: 'center',
-        marginBottom: spacing.xl,
+    // Gradient hero header
+    heroSection: {
         width: '100%',
+        overflow: 'hidden',
+        borderBottomLeftRadius: 28,
+        borderBottomRightRadius: 28,
     },
-    avatar: {
+    decorCircle: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    decorCircle1: {
+        width: 140,
+        height: 140,
+        top: -40,
+        right: -30,
+    },
+    decorCircle2: {
         width: 80,
         height: 80,
-        borderRadius: 40,
+        top: 30,
+        left: -20,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    decorCircle3: {
+        width: 50,
+        height: 50,
+        top: 80,
+        right: 60,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+    },
+    decorCircle4: {
+        width: 24,
+        height: 24,
+        top: 60,
+        left: 70,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+    },
+
+    // In-hero content (row: left text column + right avatar)
+    heroContent: {
+        zIndex: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.screenPadding + spacing.sm,
+    },
+    heroLeft: {
+        flex: 1,
+        paddingRight: spacing.md,
+    },
+    heroBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        marginBottom: spacing.md,
+    },
+    heroBadgeText: {
+        fontSize: 10,
+        fontWeight: '700' as any,
+        color: '#fff',
+        letterSpacing: 1,
+    },
+    heroAvatarContainer: {
+        position: 'relative',
+    },
+    heroAvatarRing: {
+        width: 92,
+        height: 92,
+        borderRadius: 46,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 3,
+        borderColor: 'rgba(255,255,255,0.45)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    heroAvatarInner: {
+        width: 82,
+        height: 82,
+        borderRadius: 41,
         backgroundColor: colors.primary.main,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: spacing.md,
+    },
+    heroAvatarImage: {
+        width: 82,
+        height: 82,
+        borderRadius: 41,
+    },
+    heroAvatarText: {
+        ...typography.variants.h3,
+        color: colors.text.inverse,
+    },
+    heroCameraIcon: {
+        position: 'absolute',
+        bottom: 2,
+        right: 2,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: colors.accent.main,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
+    },
+    heroNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 4,
+    },
+    heroTitle: {
+        fontSize: 24,
+        fontWeight: '800' as any,
+        color: '#fff',
+        letterSpacing: -0.3,
+        flexShrink: 1,
+    },
+    heroSubtitle: {
+        fontSize: typography.fontSize.sm,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: 4,
+    },
+    heroProBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: 4,
+        marginTop: spacing.sm + 2,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.28)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)',
+    },
+    heroProBadgeText: {
+        fontSize: 10,
+        fontWeight: '700' as any,
+        color: '#fff',
+        letterSpacing: 1,
+    },
+
+    // Background decorative bubbles (over white area)
+    bgDecorWrap: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    bgBubble: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: colors.primary.background,
+        opacity: 0.6,
+    },
+    bgBubble1: {
+        width: 220,
+        height: 220,
+        top: 360,
+        right: -110,
+    },
+    bgBubble2: {
+        width: 160,
+        height: 160,
+        top: 620,
+        left: -80,
+    },
+    bgBubble3: {
+        width: 120,
+        height: 120,
+        top: 880,
+        right: -50,
+    },
+    bgBubble4: {
+        width: 70,
+        height: 70,
+        top: 280,
+        left: 24,
+        opacity: 0.5,
+    },
+    bgBubble5: {
+        width: 40,
+        height: 40,
+        top: 540,
+        right: 30,
+        opacity: 0.7,
+    },
+    bgBubble6: {
+        width: 90,
+        height: 90,
+        top: 780,
+        left: 40,
+        opacity: 0.4,
+    },
+    bgBubble7: {
+        width: 55,
+        height: 55,
+        top: 1020,
+        right: 80,
+        opacity: 0.55,
+    },
+
+    // Outlined decorative icons (goal / task / achievement)
+    bgIcon: {
+        position: 'absolute',
+        opacity: 0.18,
+    },
+    bgIcon1: {
+        top: 300,
+        right: 22,
+        transform: [{ rotate: '-12deg' }],
+    },
+    bgIcon2: {
+        top: 420,
+        left: 18,
+        transform: [{ rotate: '15deg' }],
+    },
+    bgIcon3: {
+        top: 560,
+        right: 18,
+        transform: [{ rotate: '-8deg' }],
+    },
+    bgIcon4: {
+        top: 690,
+        left: 30,
+        transform: [{ rotate: '20deg' }],
+    },
+    bgIcon5: {
+        top: 820,
+        right: 28,
+        transform: [{ rotate: '-15deg' }],
+    },
+    bgIcon6: {
+        top: 940,
+        left: 24,
+        transform: [{ rotate: '10deg' }],
+    },
+    bgIcon7: {
+        top: 1060,
+        right: 36,
+        transform: [{ rotate: '-20deg' }],
+    },
+    bgIcon8: {
+        top: 1170,
+        left: 50,
+        transform: [{ rotate: '8deg' }],
+    },
+
+    // Avatar — floats between gradient and white
+    avatarFloatWrap: {
+        alignItems: 'center',
+        marginTop: -54,
+        marginBottom: spacing.sm,
+    },
+    avatarRing: {
+        width: 108,
+        height: 108,
+        borderRadius: 54,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+
+    // Profile Header (text below avatar)
+    profileHeader: {
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+        width: '100%',
+        paddingHorizontal: spacing.screenPadding,
+    },
+    avatar: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: colors.primary.main,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     avatarText: {
         ...typography.variants.h3,
@@ -696,24 +1060,23 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         position: 'relative',
-        marginBottom: spacing.md,
     },
     avatarImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 96,
+        height: 96,
+        borderRadius: 48,
     },
     cameraIcon: {
         position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        bottom: 2,
+        right: 2,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         backgroundColor: colors.primary.main,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 2,
+        borderWidth: 2.5,
         borderColor: '#fff',
     },
     nameContainer: {
@@ -738,9 +1101,13 @@ const styles = StyleSheet.create({
         gap: 4,
         marginTop: spacing.sm,
         paddingHorizontal: spacing.md,
-        paddingVertical: 4,
+        paddingVertical: 5,
         borderRadius: 20,
-        backgroundColor: '#667eea',
+        shadowColor: colors.primary.main,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 4,
     },
     proBadgeText: {
         fontSize: typography.fontSize.xs,
@@ -791,20 +1158,30 @@ const styles = StyleSheet.create({
     overviewContainer: {
         flexDirection: 'row',
         gap: spacing.sm,
+        marginTop: spacing.lg,
         marginBottom: spacing.lg,
-        width: '100%',
+        marginHorizontal: spacing.sm,
     },
     overviewCard: {
         flex: 1,
         backgroundColor: colors.background.primary,
         borderRadius: spacing.borderRadius.lg,
         padding: spacing.md,
+        paddingTop: spacing.md + 4,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 4,
         elevation: 2,
+        overflow: 'hidden',
+    },
+    overviewAccent: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 3,
     },
     overviewIconBg: {
         width: 36,
@@ -827,12 +1204,12 @@ const styles = StyleSheet.create({
     // Premium Card Shadow Wrapper
     premiumCardShadow: {
         marginBottom: spacing.lg,
+        marginHorizontal: spacing.sm,
         shadowColor: '#667eea',
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 3,
         elevation: 10,
-        width: '100%',
     },
     // Premium Card
     premiumCard: {
@@ -954,6 +1331,12 @@ const styles = StyleSheet.create({
         color: colors.text.tertiary,
         marginTop: 1,
     },
+    settingsDivider: {
+        height: 1,
+        backgroundColor: colors.border.light,
+        marginVertical: spacing.xs,
+        marginLeft: 36 + spacing.sm, // align with text after icon
+    },
 
     // Menu Card Shadow Wrapper
     menuCardShadow: {
@@ -997,49 +1380,52 @@ const styles = StyleSheet.create({
         marginTop: spacing.xl,
     },
 
-    // Legal Links
-    legalLinksContainer: {
+    // Account Actions (sign out + delete)
+    accountActions: {
+        marginTop: spacing.lg,
+        gap: spacing.md,
+    },
+    signOutButton: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: spacing.sm,
-        gap: spacing.sm,
-    },
-    legalLinkText: {
-        ...typography.variants.caption,
-        color: colors.text.secondary,
-        textDecorationLine: 'underline',
-    },
-    legalSeparator: {
-        color: colors.text.tertiary,
-        fontSize: typography.fontSize.xs,
-    },
-
-    // Logout Container
-    logoutContainer: {
-        paddingHorizontal: spacing.screenPadding,
-        paddingVertical: spacing.md,
-        backgroundColor: colors.background.secondary,
-        alignItems: 'center',
-    },
-
-    // Delete Account
-    deleteAccountButton: {
-        marginTop: spacing.md,
+        gap: spacing.xs,
         paddingVertical: spacing.buttonPaddingVertical,
         paddingHorizontal: spacing.buttonPaddingHorizontal,
-        minHeight: 48,
-        width: '100%',
+        minHeight: 50,
         borderRadius: spacing.borderRadius.lg,
         borderWidth: 2,
         borderColor: colors.error.main,
-        backgroundColor: 'transparent',
+        backgroundColor: colors.background.primary,
+        shadowColor: colors.error.main,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    signOutText: {
+        ...typography.variants.button,
+        color: colors.error.main,
+    },
+    deleteAccountButton: {
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.buttonPaddingVertical,
+        paddingHorizontal: spacing.buttonPaddingHorizontal,
+        minHeight: 50,
+        borderRadius: spacing.borderRadius.lg,
+        backgroundColor: colors.error.main,
+        shadowColor: colors.error.main,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        elevation: 6,
     },
     deleteAccountText: {
         ...typography.variants.button,
-        color: colors.error.main,
+        color: '#fff',
     },
 });
 

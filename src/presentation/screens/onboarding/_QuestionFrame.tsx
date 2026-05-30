@@ -82,11 +82,6 @@ export const QuestionFrame: React.FC<SingleProps | MultiProps> = (props) => {
             onBack={onBack}
             footer={
                 <View style={styles.footer}>
-                    {props.multi && (
-                        <Text style={styles.maxHint}>
-                            Pick up to {props.max ?? options.length}
-                        </Text>
-                    )}
                     <OnboardingButton
                         title="Continue"
                         onPress={onContinue}

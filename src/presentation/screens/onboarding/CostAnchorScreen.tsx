@@ -1,5 +1,5 @@
 // src/presentation/screens/onboarding/CostAnchorScreen.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,6 +15,8 @@ import { spacing } from '@/presentation/theme/spacing';
 import { typography } from '@/presentation/theme/typography';
 import { shadows } from '@/presentation/theme/shadows';
 import { OnboardingStackParamList } from '@/presentation/navigation/types';
+import { useCurrentOffering } from '@/infrastructure/stores/subscriptionStore';
+import { REVENUECAT_CONFIG } from '@/infrastructure/revenuecat/config';
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, 'CostAnchor'>;
 
@@ -28,6 +30,32 @@ const ITEMS: Array<{ emoji: string; label: string; price: string }> = [
 
 export const CostAnchorScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
+    const currentOffering = useCurrentOffering();
+
+    const annualPerMonthLabel = useMemo(() => {
+        const packages = currentOffering?.availablePackages;
+        if (!packages) return null;
+
+        const { productIds } = REVENUECAT_CONFIG;
+        const annualPkg = packages.find(
+            (p) =>
+                p.packageType === 'ANNUAL' ||
+                p.product.identifier === productIds.annual ||
+                p.identifier === '$rc_annual'
+        );
+        if (!annualPkg) return null;
+
+        const perMonth = annualPkg.product.price / 12;
+        try {
+            return new Intl.NumberFormat(undefined, {
+                style: 'currency',
+                currency: annualPkg.product.currencyCode,
+                maximumFractionDigits: 2,
+            }).format(perMonth);
+        } catch {
+            return `$${perMonth.toFixed(2)}`;
+        }
+    }, [currentOffering]);
 
     return (
         <OnboardingLayout
@@ -65,9 +93,11 @@ export const CostAnchorScreen: React.FC = () => {
                     style={styles.brandRow}
                 >
                     <View style={styles.brandRowHead}>
-                        <Text style={styles.brandEmoji}>✨</Text>
+                        <Text style={styles.brandEmoji}>👑</Text>
                         <Text style={styles.brandLabel}>{BRAND_NAME} (full plan)</Text>
-                        <Text style={styles.brandPrice}>$5/mo*</Text>
+                        <Text style={styles.brandPrice}>
+                            {annualPerMonthLabel ? `${annualPerMonthLabel}/mo*` : '—'}
+                        </Text>
                     </View>
                     <Text style={styles.brandNote}>*billed annually · less than all three</Text>
                 </LinearGradient>

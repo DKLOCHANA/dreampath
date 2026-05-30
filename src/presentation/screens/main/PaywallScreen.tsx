@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PurchasesPackage } from 'react-native-purchases';
 
@@ -25,6 +25,11 @@ import { useSubscriptionStore } from '@/infrastructure/stores/subscriptionStore'
 import { useAuthStore } from '@/infrastructure/stores/authStore';
 import { setSubscriptionTier } from '@/infrastructure/firebase/authService';
 import { checkConnectivityWithAlert } from '@/services/networkService';
+import { REVENUECAT_CONFIG } from '@/infrastructure/revenuecat/config';
+import {
+    getNotificationsEnabled,
+    scheduleTrialEndReminder,
+} from '@/services/notificationService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -38,13 +43,17 @@ const FEATURES = [
 
 export const PaywallScreen: React.FC = () => {
     const navigation = useNavigation();
+    const route = useRoute();
+    const isHard = (route.params as { hard?: boolean } | undefined)?.hard === true;
     const [selectedPlan, setSelectedPlan] = useState<PlanType>('annual');
 
     const {
         currentOffering,
+        customerInfo,
         isPurchasing,
         isRestoring,
         isPro,
+        isExpired,
         error,
         isLoading,
         fetchOfferings,
@@ -71,39 +80,66 @@ export const PaywallScreen: React.FC = () => {
         );
     }, [navigation]);
 
-    // If the user becomes pro (purchase succeeded), dismiss the screen
+    // If the user becomes pro (purchase succeeded), dismiss the screen.
+    // In hard mode the RootNavigator switches stacks automatically once
+    // isPro flips — no manual close needed.
     useEffect(() => {
         if (isPro) {
             const userId = useAuthStore.getState().user?.id;
             if (userId) {
                 setSubscriptionTier(userId, 'pro');
             }
+
+            // If the active entitlement is in its free-trial period, schedule a
+            // local reminder 24h before billing kicks in — but only when the user
+            // has opted into notifications.
+            (async () => {
+                try {
+                    const ent =
+                        customerInfo?.entitlements.active[REVENUECAT_CONFIG.entitlementId];
+                    const inTrial = ent?.periodType === 'TRIAL';
+                    const expIso = ent?.expirationDate;
+                    if (!inTrial || !expIso) return;
+                    const enabled = await getNotificationsEnabled();
+                    if (!enabled) return;
+                    const expMs = new Date(expIso).getTime();
+                    if (Number.isNaN(expMs)) return;
+                    await scheduleTrialEndReminder(expMs);
+                } catch (e) {
+                    console.warn('[Paywall] schedule trial-end reminder failed', e);
+                }
+            })();
+
             Alert.alert(
-                'Welcome to VividGoals Pro!',
-                'You now have access to all premium features.',
-                [{ text: 'Awesome!', onPress: handleClose }],
+                isExpired ? 'Welcome Back!' : 'Welcome to VividGoals Pro!',
+                isExpired
+                    ? 'Your VividGoals Pro subscription has been reactivated.'
+                    : 'You now have access to all premium features.',
+                [{ text: 'Awesome!', onPress: isHard ? undefined : handleClose }],
             );
         }
-    }, [isPro, handleClose]);
+    }, [isPro, isExpired, customerInfo, handleClose, isHard]);
 
     /**
      * Find the matching package from the current offering.
-     * RevenueCat packages use identifiers like "$rc_monthly", "$rc_annual", "$rc_lifetime"
-     * or custom identifiers matching the product IDs you set up in the dashboard.
+     * Match order (most reliable → least):
+     *   1. packageType — RevenueCat sets this from the standard $rc_ prefix
+     *   2. product.identifier — the App Store Connect product ID, the stable
+     *      cross-platform key
+     *   3. package identifier — fallback for custom offerings
      */
     const getPackageForPlan = useCallback((plan: PlanType): PurchasesPackage | undefined => {
         if (!currentOffering?.availablePackages) return undefined;
 
         const packages = currentOffering.availablePackages;
-        console.log('packages', packages);
+        const productIds = REVENUECAT_CONFIG.productIds;
 
         if (plan === 'annual') {
             return packages.find(
                 (p) =>
                     p.packageType === 'ANNUAL' ||
-                    p.identifier === '$rc_annual' ||
-                    p.identifier === 'annual' ||
-                    p.identifier === 'dreampath_yearly'
+                    p.product.identifier === productIds.annual ||
+                    p.identifier === '$rc_annual'
             );
         }
 
@@ -111,9 +147,8 @@ export const PaywallScreen: React.FC = () => {
         return packages.find(
             (p) =>
                 p.packageType === 'MONTHLY' ||
-                p.identifier === '$rc_monthly' ||
-                p.identifier === 'monthly' ||
-                p.identifier === 'dreampath_yearly'
+                p.product.identifier === productIds.monthly ||
+                p.identifier === '$rc_monthly'
         );
     }, [currentOffering]);
 
@@ -140,23 +175,21 @@ export const PaywallScreen: React.FC = () => {
     }, [annualPackage, monthlyPackage]);
 
     /**
-     * Format price display using the live offering package.
-     * Plan cards only render when the package is available, so pkg is always defined here.
+     * Format the per-month equivalent for an annual package — used to show
+     * the "$X.XX/mo" line that makes the yearly price feel digestible.
+     * Falls back to a plain numeric format if Intl currency isn't available.
      */
-    const formatPriceDisplay = useCallback((pkg: PurchasesPackage, planType: PlanType) => {
-        const priceString = pkg.product.priceString;
-
-        if (planType === 'monthly') {
-            return {
-                title: '1-Week Free Trial',
-                price: `then ${priceString} per month`,
-            };
+    const formatPerMonth = useCallback((pkg: PurchasesPackage): string => {
+        const perMonth = pkg.product.price / 12;
+        try {
+            return new Intl.NumberFormat(undefined, {
+                style: 'currency',
+                currency: pkg.product.currencyCode,
+                maximumFractionDigits: 2,
+            }).format(perMonth);
+        } catch {
+            return perMonth.toFixed(2);
         }
-
-        return {
-            title: '2-Week Free Trial',
-            price: `then ${priceString} per year`,
-        };
     }, []);
 
     const handlePurchase = async () => {
@@ -279,13 +312,15 @@ export const PaywallScreen: React.FC = () => {
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="dark" />
 
-            {/* Close Button */}
-            <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleClose}
-            >
-                <Ionicons name="close" size={28} color={colors.text.secondary} />
-            </TouchableOpacity>
+            {/* Close Button — hidden in hard paywall mode */}
+            {!isHard && (
+                <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleClose}
+                >
+                    <Ionicons name="close" size={28} color={colors.text.secondary} />
+                </TouchableOpacity>
+            )}
 
             {/* Main Content */}
             <View style={styles.content}>
@@ -307,7 +342,9 @@ export const PaywallScreen: React.FC = () => {
                         </View>
 
                         {/* Title */}
-                        <Text style={styles.title}>Unlock Your Full Potential</Text>
+                        <Text style={styles.title}>
+                            {isExpired ? 'Your Subscription Has Expired' : 'Unlock Your Full Potential'}
+                        </Text>
 
                 {/* Features List */}
                 <View style={styles.featuresContainer}>
@@ -327,42 +364,63 @@ export const PaywallScreen: React.FC = () => {
 
                 {/* Plan Options */}
                 <View style={styles.plansContainer}>
-                    {/* Annual Plan */}
+                    {/* Annual Plan — featured with BEST VALUE ribbon */}
                     {annualPackage && (
                         <TouchableOpacity
                             style={[
                                 styles.planCard,
+                                styles.planCardAnnual,
                                 selectedPlan === 'annual' && styles.planCardSelected,
                             ]}
                             onPress={() => setSelectedPlan('annual')}
-                            activeOpacity={0.8}
+                            activeOpacity={0.85}
                         >
-                            <View style={styles.planContent}>
-                                <Text style={styles.planTitle}>
-                                    {formatPriceDisplay(annualPackage, 'annual').title}
-                                </Text>
-                                <Text style={styles.planPrice}>
-                                    {formatPriceDisplay(annualPackage, 'annual').price}
-                                </Text>
+                            {/* BEST VALUE ribbon */}
+                            <View style={styles.bestValueRibbon}>
+                                <LinearGradient
+                                    colors={[colors.primary.main, colors.primary.dark]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.bestValueRibbonInner}
+                                >
+                                    <Ionicons name="star" size={11} color="#fff" />
+                                    <Text style={styles.bestValueRibbonText}>BEST VALUE</Text>
+                                </LinearGradient>
                             </View>
-                            <View style={styles.planBadgesColumn}>
+
+                            <View style={styles.planTopRow}>
+                                <View style={[
+                                    styles.radio,
+                                    selectedPlan === 'annual' && styles.radioSelected,
+                                ]}>
+                                    {selectedPlan === 'annual' && (
+                                        <View style={styles.radioInner} />
+                                    )}
+                                </View>
+                                <Text style={styles.planLabel}>Yearly</Text>
                                 {savingsPercentage() && (
-                                    <View style={[
-                                        styles.planBadge,
-                                        styles.planBadgeSavings,
-                                        selectedPlan === 'annual' && styles.planBadgeSavingsSelected,
-                                    ]}>
-                                        <Text style={[
-                                            styles.planBadgeText,
-                                            selectedPlan === 'annual' && styles.planBadgeTextSelected,
-                                        ]}>SAVE {savingsPercentage()}%</Text>
+                                    <View style={styles.savingsPill}>
+                                        <Text style={styles.savingsPillText}>
+                                            SAVE {savingsPercentage()}%
+                                        </Text>
                                     </View>
                                 )}
                             </View>
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceMain}>
+                                    {formatPerMonth(annualPackage)}
+                                </Text>
+                                <Text style={styles.priceUnit}> /mo</Text>
+                            </View>
+
+                            <Text style={styles.planSubtitle}>
+                                {annualPackage.product.priceString} billed yearly · 3-day free trial
+                            </Text>
                         </TouchableOpacity>
                     )}
 
-                    {/* Monthly Plan with Trial */}
+                    {/* Monthly Plan — no trial */}
                     {monthlyPackage && (
                         <TouchableOpacity
                             style={[
@@ -370,16 +428,30 @@ export const PaywallScreen: React.FC = () => {
                                 selectedPlan === 'monthly' && styles.planCardSelected,
                             ]}
                             onPress={() => setSelectedPlan('monthly')}
-                            activeOpacity={0.8}
+                            activeOpacity={0.85}
                         >
-                            <View style={styles.planContent}>
-                                <Text style={styles.planTitle}>
-                                    {formatPriceDisplay(monthlyPackage, 'monthly').title}
-                                </Text>
-                                <Text style={styles.planPrice}>
-                                    {formatPriceDisplay(monthlyPackage, 'monthly').price}
-                                </Text>
+                            <View style={styles.planTopRow}>
+                                <View style={[
+                                    styles.radio,
+                                    selectedPlan === 'monthly' && styles.radioSelected,
+                                ]}>
+                                    {selectedPlan === 'monthly' && (
+                                        <View style={styles.radioInner} />
+                                    )}
+                                </View>
+                                <Text style={styles.planLabel}>Monthly</Text>
                             </View>
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceMain}>
+                                    {monthlyPackage.product.priceString}
+                                </Text>
+                                <Text style={styles.priceUnit}> /mo</Text>
+                            </View>
+
+                            <Text style={styles.planSubtitle}>
+                                Billed monthly · Cancel anytime
+                            </Text>
                         </TouchableOpacity>
                     )}
 
@@ -412,9 +484,11 @@ export const PaywallScreen: React.FC = () => {
                             <ActivityIndicator color="#fff" size="small" />
                         ) : (
                             <Text style={styles.ctaButtonText}>
-                                {selectedPlan === 'annual'
-                                    ? 'Start 2-Week Free Trial'
-                                    : 'Start 1-Week Free Trial'
+                                {isExpired
+                                    ? 'Reactivate'
+                                    : selectedPlan === 'annual'
+                                        ? 'Start 3-Day Free Trial'
+                                        : 'Subscribe Now'
                                 }
                             </Text>
                         )}
@@ -528,68 +602,131 @@ const styles = StyleSheet.create({
         gap: spacing.md,
     },
     planCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        width: '100%',
         backgroundColor: colors.background.primary,
         borderRadius: 18,
-        padding: spacing.md + 4,
-        borderWidth: 2.5,
+        paddingTop: spacing.md + 2,
+        paddingBottom: spacing.md + 2,
+        paddingHorizontal: spacing.md + 4,
+        borderWidth: 2,
         borderColor: colors.neutral[200],
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 2,
+    },
+    planCardAnnual: {
+        marginTop: spacing.sm,
     },
     planCardSelected: {
         borderColor: colors.primary.main,
-        backgroundColor: colors.primary.main + '08',
+        backgroundColor: colors.primary.main + '0A',
         shadowColor: colors.primary.main,
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+        elevation: 6,
     },
-    planContent: {
-        flex: 1,
+
+    // Radio
+    radio: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        borderColor: colors.neutral[300],
+        backgroundColor: colors.background.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.sm,
     },
-    planTitle: {
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.bold as any,
-        color: colors.text.primary,
-        marginBottom: 4,
+    radioSelected: {
+        borderColor: colors.primary.main,
     },
-    planPrice: {
-        fontSize: typography.fontSize.sm,
-        color: colors.text.secondary,
-    },
-    planBadgesColumn: {
-        alignItems: 'flex-end',
-        gap: spacing.xs,
-    },
-    planBadge: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.xs + 2,
-        borderRadius: 20,
-        backgroundColor: colors.neutral[200],
-    },
-    planBadgeSelected: {
+    radioInner: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
         backgroundColor: colors.primary.main,
     },
-    planBadgeSavings: {
-        backgroundColor: colors.neutral[200],
+
+    // Plan top row (radio + label + savings pill)
+    planTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
     },
-    planBadgeSavingsSelected: {
-        backgroundColor: colors.primary.dark,
+    planLabel: {
+        fontSize: typography.fontSize.base,
+        fontWeight: typography.fontWeight.semibold as any,
+        color: colors.text.primary,
+        flex: 1,
     },
-    planBadgeText: {
-        fontSize: typography.fontSize.xs,
+
+    // Price row
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginLeft: 30, // align with text after radio
+    },
+    priceMain: {
+        fontSize: 26,
         fontWeight: typography.fontWeight.bold as any,
+        color: colors.text.primary,
+        letterSpacing: -0.5,
+    },
+    priceUnit: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.medium as any,
         color: colors.text.secondary,
+    },
+    planSubtitle: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.secondary,
+        marginTop: 4,
+        marginLeft: 30,
+    },
+
+    // Savings pill (inline next to label)
+    savingsPill: {
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 3,
+        borderRadius: 10,
+        backgroundColor: colors.primary.main + '18',
+    },
+    savingsPillText: {
+        fontSize: 10,
+        fontWeight: typography.fontWeight.bold as any,
+        color: colors.primary.dark,
         letterSpacing: 0.5,
     },
-    planBadgeTextSelected: {
+
+    // BEST VALUE ribbon — floats above the annual card
+    bestValueRibbon: {
+        position: 'absolute',
+        top: -11,
+        left: 16,
+        zIndex: 2,
+        borderRadius: 999,
+        shadowColor: colors.primary.main,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    bestValueRibbonInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        gap: 4,
+    },
+    bestValueRibbonText: {
+        fontSize: 10,
+        fontWeight: typography.fontWeight.bold as any,
         color: '#fff',
+        letterSpacing: 0.8,
     },
 
     // CTA Button

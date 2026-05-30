@@ -58,7 +58,7 @@ export const StreakScreen: React.FC = () => {
             footer={
                 <OnboardingButton
                     title="Keep going"
-                    onPress={() => navigation.navigate('PlanLoading')}
+                    onPress={() => navigation.navigate('CostAnchor')}
                 />
             }
         >

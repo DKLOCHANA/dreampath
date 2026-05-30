@@ -1,23 +1,18 @@
 // src/presentation/screens/onboarding/WelcomeScreen.tsx
-import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
-import {
-    OnboardingLayout,
-    OnboardingButton,
-} from '@/presentation/components/onboarding';
+import { OnboardingLayout } from '@/presentation/components/onboarding';
 import { colors } from '@/presentation/theme/colors';
 import { spacing } from '@/presentation/theme/spacing';
 import { typography } from '@/presentation/theme/typography';
-import { shadows } from '@/presentation/theme/shadows';
 import { OnboardingStackParamList } from '@/presentation/navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, 'Welcome'>;
 
-const BRAND_NAME = 'VividGoals';
 const BACKGROUND: readonly [string, string] = [
     colors.primary.dark,
     colors.background.dark,
@@ -25,35 +20,37 @@ const BACKGROUND: readonly [string, string] = [
 
 export const WelcomeScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
+    const blink = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(blink, { toValue: 0.15, duration: 600, useNativeDriver: true }),
+                Animated.timing(blink, { toValue: 1, duration: 600, useNativeDriver: true }),
+                Animated.delay(800),
+            ]),
+        ).start();
+    }, [blink]);
+
+    const goNext = () => navigation.navigate('Problem');
 
     return (
-        <OnboardingLayout
-            dark
-            hideTopBar
-            background={BACKGROUND}
-            footer={
-                <OnboardingButton title="Continue" onPress={() => navigation.navigate('Problem')} />
-            }
-        >
-            <View style={styles.content}>
-                <LinearGradient
-                    colors={[colors.primary.main, colors.accent.main]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.logoFrame}
-                >
-                    <Image
-                        source={require('../../../../assets/icon.png')}
-                        style={styles.logo}
-                    />
-                </LinearGradient>
+        <OnboardingLayout dark hideTopBar background={BACKGROUND}>
+            <Pressable style={styles.content} onPress={goNext}>
+                <View style={styles.hero}>
+                    <Text style={styles.heroText}>Hey.</Text>
+                    <Text style={styles.subtitle}>Let's make the{'\n'}dream real.</Text>
+                </View>
 
-                <Text style={styles.hero}>Hey.</Text>
-                <Text style={styles.subtitle}>
-                    Welcome to <Text style={styles.brand}>{BRAND_NAME}</Text>.{'\n'}
-                    Let's make the dream real.
-                </Text>
-            </View>
+                <Animated.View style={[styles.tapRow, { opacity: blink }]}>
+                    <Text style={styles.tapText}>Tap to continue</Text>
+                    <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color="rgba(255,255,255,0.5)"
+                    />
+                </Animated.View>
+            </Pressable>
         </OnboardingLayout>
     );
 };
@@ -61,42 +58,40 @@ export const WelcomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
     content: {
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.md,
-    },
-    logoFrame: {
-        width: 132,
-        height: 132,
-        borderRadius: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: spacing.xl,
-        ...shadows.xl,
-        shadowColor: colors.primary.main,
-    },
-    logo: {
-        width: 110,
-        height: 110,
-        borderRadius: 28,
+        justifyContent: 'space-between',
+        paddingBottom: spacing.lg,
     },
     hero: {
-        fontSize: 64,
-        fontWeight: '800',
-        letterSpacing: -1.5,
+        flex: 1,
+        justifyContent: 'center',
+        gap: spacing.sm,
+    },
+    heroText: {
+        fontFamily: typography.fontFamily?.serif,
+        fontStyle: 'italic',
+        fontSize: 72,
+        fontWeight: '700',
+        letterSpacing: -1,
         color: colors.text.inverse,
     },
     subtitle: {
         ...typography.variants.bodyLarge,
-        fontSize: 19,
-        color: 'rgba(255,255,255,0.7)',
-        textAlign: 'center',
-        lineHeight: 28,
-        maxWidth: 300,
+        fontSize: 28,
+        fontWeight: '300',
+        color: 'rgba(255,255,255,0.65)',
+        lineHeight: 36,
+        letterSpacing: -0.5,
     },
-    brand: {
-        color: colors.text.inverse,
-        fontWeight: '700',
+    tapRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: spacing.xs,
+    },
+    tapText: {
+        ...typography.variants.label,
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.5)',
     },
 });
 

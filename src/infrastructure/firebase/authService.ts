@@ -15,6 +15,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firest
 import { auth, db } from './config';
 import { User } from '@/domain/entities/User';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
+import { migrateGuestCacheToUser } from '@/data/guestGoalCache';
 import { logCompleteRegistration } from '@/services/appsflyerService';
 
 // Helper to trigger data sync after login (runs in background)
@@ -22,15 +23,15 @@ const triggerDataSync = async (): Promise<void> => {
     try {
         const { syncFromFirestore, syncToFirestore, cleanupOrphanedTasks } = await import('@/data/dataSyncService');
         console.log('[AuthService] Starting data sync after login...');
-        
+
         // First pull data from Firestore to local
         const pullResult = await syncFromFirestore();
         console.log('[AuthService] Data pulled from Firestore:', pullResult);
-        
+
         // Then push any local-only data to Firestore
         const pushResult = await syncToFirestore();
         console.log('[AuthService] Data pushed to Firestore:', pushResult);
-        
+
         // Clean up any orphaned tasks
         const cleanedUp = await cleanupOrphanedTasks();
         if (cleanedUp > 0) {
@@ -100,13 +101,14 @@ export const signUpWithEmail = async (email: string, password: string, displayNa
         // Email signup always creates a new account, so the doc is always new.
         await createUserDocument(firebaseUser, { displayName });
 
+        // Promote pre-login onboarding goal onto this new account.
+        await migrateGuestCacheToUser(firebaseUser.uid);
+
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
+        logCompleteRegistration('email'); // fire-and-forget
         console.log('[AuthService] User signed up:', user.email);
-
-        logCompleteRegistration('email');
-
         return user;
     } catch (error: any) {
         console.error('[AuthService] Sign up error:', error);
@@ -120,11 +122,14 @@ export const signInWithEmail = async (email: string, password: string): Promise<
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
+        // Promote pre-login onboarding goal as a NEW goal on this account.
+        await migrateGuestCacheToUser(firebaseUser.uid);
+
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
         console.log('[AuthService] User signed in:', user.email);
-        
+
         // Sync data from Firestore after login
         triggerDataSync();
         
@@ -143,15 +148,14 @@ export const signInWithGoogle = async (idToken: string): Promise<User> => {
         const firebaseUser = userCredential.user;
 
         // Create user document if doesn't exist
-        const isNewUser = await createUserDocument(firebaseUser);
+        const isNew = await createUserDocument(firebaseUser);
 
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
+        if (isNew) logCompleteRegistration('google'); // fire-and-forget
         console.log('[AuthService] User signed in with Google:', user.email);
-
-        if (isNewUser) logCompleteRegistration('google');
-
+        
         // Sync data from Firestore after login
         triggerDataSync();
 
@@ -174,15 +178,14 @@ export const signInWithApple = async (identityToken: string, nonce: string): Pro
         const firebaseUser = userCredential.user;
 
         // Create user document if doesn't exist
-        const isNewUser = await createUserDocument(firebaseUser);
+        const isNew = await createUserDocument(firebaseUser);
 
         const user = await firebaseUserToUser(firebaseUser);
         useAuthStore.getState().setUser(user);
 
+        if (isNew) logCompleteRegistration('apple'); // fire-and-forget
         console.log('[AuthService] User signed in with Apple:', user.email);
-
-        if (isNewUser) logCompleteRegistration('apple');
-
+        
         // Sync data from Firestore after login
         triggerDataSync();
 
@@ -286,9 +289,12 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void): (
     return onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
             try {
+                // Promote any pending onboarding goal before downstream code reads goals.
+                await migrateGuestCacheToUser(firebaseUser.uid);
+
                 const user = await firebaseUserToUser(firebaseUser);
                 callback(user);
-                
+
                 // Sync data when auth state changes (e.g., app restart with existing session)
                 triggerDataSync();
             } catch (error) {

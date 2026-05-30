@@ -1,15 +1,7 @@
-// src/infrastructure/stores/onboardingStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type AgeBand = '18–24' | '25–34' | '35–44' | '45–54' | '55+';
-export type YearsBand =
-    | 'Less than a year'
-    | '1–3 years'
-    | '3–5 years'
-    | '5+ years'
-    | 'I keep restarting';
 export type DailyTimeBand =
     | "10 minutes — I'm slammed"
     | '20–30 minutes'
@@ -23,8 +15,8 @@ export type CommitmentLevel =
 
 export interface OnboardingAnswers {
     name: string;
-    age: AgeBand | null;
-    years: YearsBand | null;
+    age: number | null;
+    years: number | null;
     goalArea: string | null;
     blockers: string[];
     tracking: string | null;
@@ -99,27 +91,19 @@ export const useOnboardingStore = create<OnboardingState>()(
 );
 
 // ──────────────────────────── Derivations ────────────────────────────
-// Used by Bombshell (S7), Summary (S26), and other math/copy screens.
+// Used by Bombshell (S7), Analytics (S16), Summary (S26).
 
-export const ageMidpoint = (band: AgeBand | null): number => {
-    switch (band) {
-        case '18–24': return 21;
-        case '25–34': return 30;
-        case '35–44': return 40;
-        case '45–54': return 50;
-        case '55+': return 60;
-        default: return 30;
-    }
-};
+export const ageMidpoint = (age: number | null): number => age ?? 30;
 
-export const yearsStuckMidpoint = (band: YearsBand | null): number => {
+export const yearsStuckMidpoint = (years: number | null): number => years ?? 3;
+
+export const dailyMinutesValue = (band: DailyTimeBand | null): number => {
     switch (band) {
-        case 'Less than a year': return 1;
-        case '1–3 years': return 2;
-        case '3–5 years': return 4;
-        case '5+ years': return 7;
-        case 'I keep restarting': return 5;
-        default: return 3;
+        case "10 minutes — I'm slammed": return 10;
+        case '20–30 minutes': return 25;
+        case 'An hour': return 60;
+        case 'More if I see it working': return 90;
+        default: return 10;
     }
 };
 
@@ -127,4 +111,24 @@ export const dailyMinutesLabel = (band: DailyTimeBand | null): string => {
     if (!band) return '10 min';
     const match = band.match(/\d+[–\d]*/);
     return match ? `${match[0]} min` : '10 min';
+};
+
+export const momentumDaysSince = (last: string | null): number => {
+    switch (last) {
+        case 'This week': return 4;
+        case 'This month': return 20;
+        case 'This year': return 180;
+        case "I honestly can't remember": return 365;
+        default: return 30;
+    }
+};
+
+export const momentumLabel = (last: string | null): string => {
+    switch (last) {
+        case 'This week': return 'days';
+        case 'This month': return 'days';
+        case 'This year': return 'days';
+        case "I honestly can't remember": return 'days+';
+        default: return 'days';
+    }
 };

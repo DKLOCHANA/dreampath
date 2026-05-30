@@ -1,9 +1,9 @@
 // src/presentation/screens/onboarding/NotificationsScreen.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 
 import {
@@ -13,10 +13,13 @@ import {
 import { colors } from '@/presentation/theme/colors';
 import { spacing } from '@/presentation/theme/spacing';
 import { typography } from '@/presentation/theme/typography';
-import { shadows } from '@/presentation/theme/shadows';
 import { useOnboardingStore } from '@/infrastructure/stores/onboardingStore';
 import { RootStackParamList } from '@/presentation/navigation/types';
-import { saveNotificationsEnabled, scheduleReengagementNotification } from '@/services/notificationService';
+import {
+    saveNotificationsEnabled,
+    scheduleReengagementNotification,
+} from '@/services/notificationService';
+import { requestTrackingPermission } from '@/services/appsflyerService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -24,31 +27,54 @@ export const NotificationsScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
     const setAnswer = useOnboardingStore((s) => s.setAnswer);
 
+    // Request ATT alongside the notification prompt — Apple requires contextual
+    // justification before the system dialog, and this screen provides it.
+    useEffect(() => {
+        const t = setTimeout(() => { requestTrackingPermission(); }, 800);
+        return () => clearTimeout(t);
+    }, []);
+
     const exitToAuth = () => {
-        // Onboarding ends here; new user heads to Register. Paywall lives
-        // downstream in MainNavigator (unchanged).
         navigation.navigate('Auth', { screen: 'Register' });
     };
 
     const handleAllow = async () => {
         try {
-            const { status: currentStatus } = await Notifications.getPermissionsAsync();
+            const { status: currentStatus, canAskAgain } =
+                await Notifications.getPermissionsAsync();
 
-            if (currentStatus === 'denied') {
-                // iOS won't re-show the system prompt after denial — inform and let them proceed
+            // Already granted — nothing to ask, just schedule + advance
+            if (currentStatus === 'granted') {
+                setAnswer('notificationsAllowed', true);
+                await saveNotificationsEnabled(true);
+                await scheduleReengagementNotification();
+                exitToAuth();
+                return;
+            }
+
+            // iOS only shows the system prompt once. If it's been denied (or the
+            // OS otherwise won't ask again), route the user to Settings.
+            if (currentStatus === 'denied' || !canAskAgain) {
                 setAnswer('notificationsAllowed', false);
                 await saveNotificationsEnabled(false);
                 Alert.alert(
                     'Notifications Blocked',
-                    'Enable notifications for VividGoals in your device Settings to receive goal reminders.',
+                    'Enable notifications for VividGoals in your device Settings to receive the trial-ending reminder.',
                     [
-                        { text: 'Not Now', style: 'cancel' },
-                        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                        { text: 'Not Now', style: 'cancel', onPress: exitToAuth },
+                        {
+                            text: 'Open Settings',
+                            onPress: () => {
+                                Linking.openSettings();
+                                exitToAuth();
+                            },
+                        },
                     ],
                 );
-                return; // finally still runs and calls exitToAuth
+                return;
             }
 
+            // Status is 'undetermined' — trigger the system prompt
             const { status } = await Notifications.requestPermissionsAsync({
                 ios: {
                     allowAlert: true,
@@ -58,24 +84,21 @@ export const NotificationsScreen: React.FC = () => {
             });
             const granted = status === 'granted';
             setAnswer('notificationsAllowed', granted);
+            await saveNotificationsEnabled(granted);
             if (granted) {
-                await saveNotificationsEnabled(true);
                 await scheduleReengagementNotification();
-            } else {
-                await saveNotificationsEnabled(false);
             }
+            exitToAuth();
         } catch (error) {
-            // Permission flow errored — proceed without blocking onboarding.
             console.warn('[Notifications] permission request failed', error);
             setAnswer('notificationsAllowed', false);
-        } finally {
             exitToAuth();
         }
     };
 
     const handleSkip = () => {
         setAnswer('notificationsAllowed', false);
-        saveNotificationsEnabled(false); // fire-and-forget, non-critical
+        saveNotificationsEnabled(false); // fire-and-forget
         exitToAuth();
     };
 
@@ -83,9 +106,11 @@ export const NotificationsScreen: React.FC = () => {
         <OnboardingLayout
             step={28}
             onBack={() => navigation.goBack()}
+            scrollable
+            contentContainerStyle={styles.content}
             footer={
                 <View style={styles.footer}>
-                    <OnboardingButton title="Allow notifications" onPress={handleAllow} />
+                    <OnboardingButton title="Enable reminders" onPress={handleAllow} />
                     <Pressable
                         onPress={handleSkip}
                         style={({ pressed }) => [
@@ -93,38 +118,66 @@ export const NotificationsScreen: React.FC = () => {
                             pressed && styles.skipPressed,
                         ]}
                     >
-                        <Text style={styles.skipText}>Maybe later</Text>
+                        <Text style={styles.skipText}>
+                            Skip — I'll risk missing the reminder
+                        </Text>
                     </Pressable>
                 </View>
             }
         >
-            <View style={styles.body}>
-                <Text style={styles.headline}>
-                    One last thing — we'll need to nudge you.
-                </Text>
-                <Text style={styles.sub}>
-                    A gentle reminder at the time <Text style={styles.italic}>you</Text> pick.
-                    No spam. Change anytime.
-                </Text>
+            <View style={styles.heroWrap}>
+                <View style={styles.heroCircle}>
+                    <Ionicons
+                        name="notifications"
+                        size={44}
+                        color={colors.primary.main}
+                    />
+                </View>
+            </View>
 
-                <View style={styles.previewCard}>
-                    <Text style={styles.previewLabel}>PREVIEW</Text>
-                    <View style={styles.previewNotif}>
-                        <LinearGradient
-                            colors={[colors.primary.main, colors.accent.main]}
-                            style={styles.previewIcon}
-                        >
-                            <Text style={styles.previewIconEmoji}>✨</Text>
-                        </LinearGradient>
-                        <View style={styles.previewBody}>
-                            <View style={styles.previewHeadRow}>
-                                <Text style={styles.previewTitle}>VividGoals</Text>
-                                <Text style={styles.previewTime}>now</Text>
-                            </View>
-                            <Text style={styles.previewMessage}>
-                                Your one move is ready. 10 min. Let's go. 🔥
-                            </Text>
-                        </View>
+            <Text style={styles.title}>
+                We'll remind you{'\n'}before your trial ends.
+            </Text>
+
+            <Text style={styles.subtitle}>
+                No surprise charges. Turn on notifications and we'll ping you
+                24 hours before your free trial converts — so you decide.
+            </Text>
+
+            <View style={styles.compareCard}>
+                <View style={styles.compareRow}>
+                    <View style={[styles.compareIcon, styles.compareIconOn]}>
+                        <Ionicons
+                            name="notifications"
+                            size={20}
+                            color={colors.primary.main}
+                        />
+                    </View>
+                    <View style={styles.compareBody}>
+                        <Text style={styles.compareTitle}>Trial-ending reminder</Text>
+                        <Text style={styles.compareSubtitle}>
+                            A heads-up the day before billing starts. Cancel in one tap
+                            if it's not for you.
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.compareRow}>
+                    <View style={[styles.compareIcon, styles.compareIconOff]}>
+                        <Ionicons
+                            name="notifications-off"
+                            size={20}
+                            color={colors.error.main}
+                        />
+                    </View>
+                    <View style={styles.compareBody}>
+                        <Text style={styles.compareTitle}>Without notifications</Text>
+                        <Text style={styles.compareSubtitle}>
+                            You won't get the trial-ending reminder, and may not realise
+                            billing has started.
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -133,87 +186,86 @@ export const NotificationsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-    body: {
-        flex: 1,
-        paddingTop: spacing.md,
-        gap: spacing.md,
+    content: {
+        paddingTop: spacing.lg,
+        paddingBottom: spacing.lg,
     },
-    headline: {
-        ...typography.variants.h2,
-        fontSize: 28,
-        lineHeight: 34,
+    heroWrap: {
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+    },
+    heroCircle: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: colors.primary.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    title: {
+        ...typography.variants.h1,
+        fontSize: 30,
+        lineHeight: 38,
         fontWeight: '800',
         color: colors.text.primary,
         letterSpacing: -0.5,
+        textAlign: 'center',
+        marginBottom: spacing.md,
     },
-    sub: {
+    subtitle: {
         ...typography.variants.body,
         fontSize: 15,
         lineHeight: 22,
         color: colors.text.secondary,
+        textAlign: 'center',
+        paddingHorizontal: spacing.sm,
+        marginBottom: spacing.xl,
     },
-    italic: {
-        fontStyle: 'italic',
-    },
-    previewCard: {
+    compareCard: {
         backgroundColor: colors.background.secondary,
         borderWidth: 1,
         borderColor: colors.border.light,
-        borderRadius: spacing.borderRadius.xl + 2,
+        borderRadius: spacing.borderRadius.xl,
         padding: spacing.md,
-        marginTop: spacing.sm,
+        gap: spacing.md,
     },
-    previewLabel: {
-        ...typography.variants.labelSmall,
-        fontSize: 12,
-        fontWeight: '600',
-        color: colors.text.tertiary,
-        letterSpacing: 0.8,
-        marginBottom: spacing.sm + 2,
-    },
-    previewNotif: {
+    compareRow: {
         flexDirection: 'row',
-        gap: spacing.md - 2,
-        backgroundColor: colors.background.primary,
-        padding: spacing.sm + 4,
-        borderRadius: spacing.borderRadius.lg + 2,
-        ...shadows.sm,
+        alignItems: 'flex-start',
+        gap: spacing.md,
     },
-    previewIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 9,
+    compareIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: spacing.borderRadius.md + 2,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    previewIconEmoji: {
-        fontSize: 20,
+    compareIconOn: {
+        backgroundColor: colors.primary.background,
     },
-    previewBody: {
+    compareIconOff: {
+        backgroundColor: colors.error.background,
+    },
+    compareBody: {
         flex: 1,
     },
-    previewHeadRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    previewTitle: {
-        ...typography.variants.label,
-        fontSize: 13,
-        fontWeight: '600',
+    compareTitle: {
+        ...typography.variants.h6,
+        fontSize: 15,
+        fontWeight: '700',
         color: colors.text.primary,
+        marginBottom: 2,
     },
-    previewTime: {
-        ...typography.variants.caption,
-        fontSize: 11,
-        color: colors.text.tertiary,
-    },
-    previewMessage: {
+    compareSubtitle: {
         ...typography.variants.bodySmall,
-        fontSize: 14,
-        color: colors.text.primary,
-        lineHeight: 19,
-        marginTop: 2,
+        fontSize: 13,
+        lineHeight: 18,
+        color: colors.text.secondary,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: colors.border.light,
     },
     footer: {
         gap: spacing.xs,
@@ -229,8 +281,9 @@ const styles = StyleSheet.create({
     skipText: {
         ...typography.variants.label,
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '500',
         color: colors.text.secondary,
+        textDecorationLine: 'underline',
     },
 });
 

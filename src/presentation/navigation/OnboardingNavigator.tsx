@@ -25,12 +25,12 @@ import {
     ChartScreen,
     Checkin1Screen,
     Checkin2Screen,
-    MiniPlanScreen,
+    PlanWizardScreen,
+    PlanPreviewScreen,
     StreakScreen,
-    PlanLoadingScreen,
-    SummaryScreen,
     CostAnchorScreen,
     CommitmentScreen,
+    TrialReminderScreen,
     NotificationsScreen,
 } from '@/presentation/screens/onboarding';
 
@@ -67,12 +67,12 @@ export const OnboardingNavigator: React.FC = () => {
             <Stack.Screen name="Chart" component={ChartScreen} />
             <Stack.Screen name="Checkin1" component={Checkin1Screen} />
             <Stack.Screen name="Checkin2" component={Checkin2Screen} />
-            <Stack.Screen name="MiniPlan" component={MiniPlanScreen} />
+            <Stack.Screen name="PlanWizard" component={PlanWizardScreen} />
+            <Stack.Screen name="PlanPreview" component={PlanPreviewScreen} />
             <Stack.Screen name="Streak" component={StreakScreen} />
-            <Stack.Screen name="PlanLoading" component={PlanLoadingScreen} />
-            <Stack.Screen name="Summary" component={SummaryScreen} />
             <Stack.Screen name="CostAnchor" component={CostAnchorScreen} />
             <Stack.Screen name="Commitment" component={CommitmentScreen} />
+            <Stack.Screen name="TrialReminder" component={TrialReminderScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </Stack.Navigator>
     );

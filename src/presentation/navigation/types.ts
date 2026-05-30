@@ -33,12 +33,12 @@ export type OnboardingStackParamList = {
   Chart: undefined;
   Checkin1: undefined;
   Checkin2: undefined;
-  MiniPlan: undefined;
+  PlanWizard: undefined;
+  PlanPreview: undefined;
   Streak: undefined;
-  PlanLoading: undefined;
-  Summary: undefined;
   CostAnchor: undefined;
   Commitment: undefined;
+  TrialReminder: undefined;
   Notifications: undefined;
 };
 
@@ -77,14 +77,14 @@ export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
   Main: NavigatorScreenParams<MainStackParamList>;
+  HardPaywall: { hard: true } | undefined;
 };
 
 // Main Stack (wraps tabs, includes FirstGoal screen)
 export type MainStackParamList = {
   FirstGoal: undefined;
   Tabs: NavigatorScreenParams<MainTabParamList>;
-  Paywall: undefined;
-  ExpiredSubscription: undefined;
+  Paywall: { hard?: boolean } | undefined;
   Analytics: undefined;
 };
 

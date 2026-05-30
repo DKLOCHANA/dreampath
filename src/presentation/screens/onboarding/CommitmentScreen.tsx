@@ -54,7 +54,7 @@ export const CommitmentScreen: React.FC = () => {
             footer={
                 <OnboardingButton
                     title="Continue"
-                    onPress={() => navigation.navigate('Notifications')}
+                    onPress={() => navigation.navigate('TrialReminder')}
                     disabled={!commit}
                 />
             }

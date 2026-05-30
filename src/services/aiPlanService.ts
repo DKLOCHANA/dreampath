@@ -391,83 +391,64 @@ export async function generateWeeklyPatternsWithAI(
         },
     };
 
-    try {
-        console.log('[AIService] Requesting weekly patterns from API...');
-        
-        // Check network connectivity before API call
-        const hasInternet = await isOnline();
-        if (!hasInternet) {
-            console.log('[AIService] No internet connection, using default patterns');
-            return generateDefaultPatterns(goal, wizardData, totalWeeks);
-        }
-        
-        const response = await fetch(`${API_BASE_URL}/api/generate-weekly-patterns`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-        });
+    console.log('[AIService] Requesting weekly patterns from API for goal:', goal.title);
 
-        // If the endpoint doesn't exist yet, fall back to default patterns
-        if (response.status === 404) {
-            console.log('[AIService] Weekly patterns endpoint not available, using defaults');
-            return generateDefaultPatterns(goal, wizardData, totalWeeks);
-        }
-
-        if (!response.ok) {
-            console.warn('[AIService] Weekly patterns API error, using defaults');
-            return generateDefaultPatterns(goal, wizardData, totalWeeks);
-        }
-
-        const rawText = await response.text();
-        let data: WeeklyPatternsAPIResponse;
-        
-        try {
-            data = JSON.parse(rawText);
-        } catch (parseError) {
-            console.warn('[AIService] Failed to parse weekly patterns response, using defaults');
-            return generateDefaultPatterns(goal, wizardData, totalWeeks);
-        }
-
-        // Check if content was blocked
-        if ((data as any).blocked === true) {
-            const blockedError = new Error((data as any).message || 'This goal cannot be processed.');
-            (blockedError as any).blocked = true;
-            (blockedError as any).category = (data as any).category;
-            throw blockedError;
-        }
-
-        if (!data.success || !data.patterns || data.patterns.length === 0) {
-            console.warn('[AIService] Invalid weekly patterns response, using defaults');
-            return generateDefaultPatterns(goal, wizardData, totalWeeks);
-        }
-
-        console.log('[AIService] Weekly patterns generated successfully:', data.patterns.length);
-
-        // Convert API response to our format
-        const patterns: WeeklyPattern[] = data.patterns.map(p => ({
-            weekNumber: p.weekNumber,
-            theme: p.theme,
-            phase: p.phase,
-            weekdayTasks: p.weekdayTasks as TaskTemplate[],
-            weekendTasks: p.weekendTasks as TaskTemplate[],
-            difficultyLevel: p.difficultyLevel,
-        }));
-
-        return {
-            patterns,
-            planSummary: data.planSummary,
-            motivationalMessage: data.motivationalMessage,
-            successProbability: data.successProbability,
-            totalWeeks,
-        };
-
-    } catch (error: any) {
-        console.error('[AIService] Error generating weekly patterns:', error);
-        console.log('[AIService] Falling back to default patterns');
+    // Offline is the ONLY case where we intentionally produce generic defaults
+    // here — any other failure throws so the caller can try the personalized
+    // /api/generate-plan endpoint instead of silently shipping category templates.
+    const hasInternet = await isOnline();
+    if (!hasInternet) {
+        console.log('[AIService] No internet — using default patterns (offline)');
         return generateDefaultPatterns(goal, wizardData, totalWeeks);
     }
+
+    const response = await fetch(`${API_BASE_URL}/api/generate-weekly-patterns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Weekly patterns API returned ${response.status}`);
+    }
+
+    const rawText = await response.text();
+    let data: WeeklyPatternsAPIResponse;
+    try {
+        data = JSON.parse(rawText);
+    } catch {
+        throw new Error('Weekly patterns API returned unparseable JSON');
+    }
+
+    if ((data as any).blocked === true) {
+        const blockedError = new Error((data as any).message || 'This goal cannot be processed.');
+        (blockedError as any).blocked = true;
+        (blockedError as any).category = (data as any).category;
+        throw blockedError;
+    }
+
+    if (!data.success || !data.patterns || data.patterns.length === 0) {
+        throw new Error('Weekly patterns API returned an invalid response');
+    }
+
+    console.log('[AIService] Weekly patterns generated for', goal.title, '— weeks:', data.patterns.length);
+
+    const patterns: WeeklyPattern[] = data.patterns.map((p) => ({
+        weekNumber: p.weekNumber,
+        theme: p.theme,
+        phase: p.phase,
+        weekdayTasks: p.weekdayTasks as TaskTemplate[],
+        weekendTasks: p.weekendTasks as TaskTemplate[],
+        difficultyLevel: p.difficultyLevel,
+    }));
+
+    return {
+        patterns,
+        planSummary: data.planSummary,
+        motivationalMessage: data.motivationalMessage,
+        successProbability: data.successProbability,
+        totalWeeks,
+    };
 }
 
 /**

@@ -1,4 +1,6 @@
 // src/presentation/screens/onboarding/MirrorScreen.tsx
+// Mid-onboarding reflection — surfaces what we heard from Q1–Q3
+// (goalArea, blockers, tracking) before continuing into Q4–Q6.
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -11,10 +13,7 @@ import {
 import { colors } from '@/presentation/theme/colors';
 import { spacing } from '@/presentation/theme/spacing';
 import { typography } from '@/presentation/theme/typography';
-import {
-    dailyMinutesLabel,
-    useOnboardingStore,
-} from '@/infrastructure/stores/onboardingStore';
+import { useOnboardingStore } from '@/infrastructure/stores/onboardingStore';
 import { OnboardingStackParamList } from '@/presentation/navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, 'Mirror'>;
@@ -61,29 +60,35 @@ const ReflectCard: React.FC<ReflectCardProps> = ({ title, body, emoji }) => (
     </View>
 );
 
+const formatBlockers = (blockers: string[]): string => {
+    if (blockers.length === 0) return "you haven't been sure where to start";
+    const lower = blockers.map((b) => b.toLowerCase());
+    if (lower.length === 1) return lower[0];
+    return `${lower[0]} — and ${lower[1]}`;
+};
+
 export const MirrorScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
-    const { name, goalArea, blockers, daily, payoff } = useOnboardingStore();
+    const { name, goalArea, blockers, tracking } = useOnboardingStore();
 
     const goal = (goalArea ?? 'achieve your goal').split('—')[0].trim().toLowerCase();
-    const blocker = (blockers[0] ?? "you don't know where to start").toLowerCase();
-    const time = dailyMinutesLabel(daily);
-    const payoffWord = (payoff ?? 'Relief').split('—')[0].trim().toLowerCase();
+    const blockerLine = formatBlockers(blockers);
+    const trackLine = (tracking ?? "you haven't tracked it yet").toLowerCase();
 
     return (
         <OnboardingLayout
-            step={15}
+            step={12}
             onBack={() => navigation.goBack()}
             footer={
                 <OnboardingButton
                     title="Yes — keep going"
-                    onPress={() => navigation.navigate('Analytics')}
+                    onPress={() => navigation.navigate('Momentum')}
                 />
             }
         >
             <View style={styles.body}>
                 <Text style={styles.headline}>
-                    Here's what we heard,{' '}
+                    Here's what we heard so far,{' '}
                     <Text style={styles.accent}>{name || 'friend'}.</Text>
                 </Text>
                 <View style={styles.cards}>
@@ -91,20 +96,21 @@ export const MirrorScreen: React.FC = () => {
                         <ReflectCard title="YOU WANT TO" body={goal} emoji="🎯" />
                     </Reveal>
                     <Reveal delay={900}>
-                        <ReflectCard title="YOU'VE BEEN STUCK BECAUSE" body={blocker} emoji="🔒" />
+                        <ReflectCard
+                            title="WHAT'S BEEN STOPPING YOU"
+                            body={blockerLine}
+                            emoji="🔒"
+                        />
                     </Reveal>
                     <Reveal delay={1500}>
-                        <ReflectCard title="YOU CAN GIVE IT" body={`${time} a day`} emoji="⏱️" />
-                    </Reveal>
-                    <Reveal delay={2100}>
                         <ReflectCard
-                            title="AND WHEN IT'S DONE, YOU'LL FEEL"
-                            body={payoffWord}
-                            emoji="✨"
+                            title="HOW YOU TRACK IT TODAY"
+                            body={trackLine}
+                            emoji="📍"
                         />
                     </Reveal>
                 </View>
-                <Reveal delay={2600}>
+                <Reveal delay={2100}>
                     <Text style={styles.confirm}>Sound about right?</Text>
                 </Reveal>
             </View>

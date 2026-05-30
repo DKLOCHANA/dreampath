@@ -70,7 +70,6 @@ export const NameScreen: React.FC = () => {
                     ]}
                 />
 
-                <Text style={styles.hint}>🔒 Stored on your device.</Text>
             </KeyboardAvoidingView>
         </OnboardingLayout>
     );

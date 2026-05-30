@@ -40,7 +40,10 @@ import {
 import { useTaskBatchManager } from '@/presentation/hooks/useTaskBatchManager';
 import { isOnline, showNoInternetAlert } from '@/services/networkService';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_SMALL_SCREEN = SCREEN_HEIGHT < 740;
+const EMPTY_ILLUSTRATION_SIZE = IS_SMALL_SCREEN ? 150 : 200;
+const EMPTY_RING_SIZE = IS_SMALL_SCREEN ? 90 : 124;
 
 type HomeNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Home'>;
 
@@ -252,28 +255,63 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-                overScrollMode="never"
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
-                }
-            >
-                {/* Hero Section with Gradient */}
-                <View style={styles.heroShadowWrapper}>
-                    <LinearGradient
-                        colors={['#667eea', '#764ba2', '#f093fb']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={[styles.heroSection, { paddingTop: insets.top + spacing.md }]}
-                    >
-                        {/* Header */}
+            {/* Background decorative bubbles + outlined home icons — fixed to screen */}
+            <View pointerEvents="none" style={styles.bgDecorWrap}>
+                <View style={[styles.bgBubble, styles.bgBubble1]} />
+                <View style={[styles.bgBubble, styles.bgBubble2]} />
+                <View style={[styles.bgBubble, styles.bgBubble3]} />
+                <View style={[styles.bgBubble, styles.bgBubble4]} />
+                <View style={[styles.bgBubble, styles.bgBubble5]} />
+                <View style={[styles.bgBubble, styles.bgBubble6]} />
+                <View style={[styles.bgBubble, styles.bgBubble7]} />
+
+                <View style={[styles.bgIcon, styles.bgIcon1]}>
+                    <Ionicons name="sunny-outline" size={52} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon2]}>
+                    <Ionicons name="today-outline" size={48} color={colors.accent.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon3]}>
+                    <Ionicons name="trophy-outline" size={54} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon4]}>
+                    <Ionicons name="star-outline" size={42} color={colors.accent.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon5]}>
+                    <Ionicons name="sparkles-outline" size={46} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon6]}>
+                    <Ionicons name="rocket-outline" size={48} color={colors.accent.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon7]}>
+                    <Ionicons name="bulb-outline" size={40} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon8]}>
+                    <Ionicons name="flag-outline" size={44} color={colors.accent.light} />
+                </View>
+            </View>
+
+            {/* Docked Hero Header (fixed at top — does not scroll) */}
+            <View style={styles.heroShadowWrapper}>
+                <LinearGradient
+                    colors={[colors.primary.dark, colors.primary.main, colors.accent.main]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.heroSection, { paddingTop: insets.top + spacing.sm }]}
+                >
+                        {/* Decorative translucent circles */}
+                        <View style={[styles.decorCircle, styles.decorCircle1]} />
+                        <View style={[styles.decorCircle, styles.decorCircle2]} />
+                        <View style={[styles.decorCircle, styles.decorCircle3]} />
+                        <View style={[styles.decorCircle, styles.decorCircle4]} />
+
+                        {/* Header — greeting/name + avatar */}
                         <View style={styles.heroHeader}>
-                            <View>
+                            <View style={styles.heroHeaderLeft}>
                                 <Text style={styles.heroGreeting}>{getGreeting()}</Text>
-                                <Text style={styles.heroName}>{user?.displayName || 'User'}</Text>
+                                <Text style={styles.heroName} numberOfLines={1}>
+                                    {user?.displayName || 'User'}
+                                </Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.avatar}
@@ -366,6 +404,81 @@ export const HomeScreen: React.FC = () => {
                     </LinearGradient>
                 </View>
 
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.main} />
+                }
+            >
+                {goals.length === 0 && tasks.length === 0 ? (
+                /* Welcome — no goals, no tasks */
+                <View style={styles.welcomeEmptyWrap}>
+                    <View style={styles.illustrationWrap}>
+                        <View style={[styles.illustrationBubble, styles.illustrationBubble1]} />
+                        <View style={[styles.illustrationBubble, styles.illustrationBubble2]} />
+                        <View style={[styles.illustrationBubble, styles.illustrationBubble3]} />
+                        <View style={styles.illustrationStarTL}>
+                            <Ionicons name="sparkles" size={18} color={colors.accent.main} />
+                        </View>
+                        <View style={styles.illustrationStarTR}>
+                            <Ionicons name="paper-plane" size={20} color={colors.primary.main} />
+                        </View>
+                        <View style={styles.illustrationIconRing}>
+                            <Ionicons name="clipboard-outline" size={IS_SMALL_SCREEN ? 46 : 64} color={colors.primary.main} />
+                        </View>
+                    </View>
+
+                    <Text style={styles.welcomeTitle}>
+                        Welcome! Let's get started <Text>🚀</Text>
+                    </Text>
+                    <Text style={styles.welcomeSubtitle}>
+                        You don't have any tasks or goals yet.{'\n'}Add your first task or set a goal to start making progress!
+                    </Text>
+
+                    <View style={styles.welcomeActionsRow}>
+                        <TouchableOpacity
+                            style={styles.welcomeOutlineBtn}
+                            onPress={() => navigation.navigate('Goals')}
+                            activeOpacity={0.85}
+                        >
+                            <View style={styles.welcomeOutlineIconBg}>
+                                <Ionicons name="locate" size={IS_SMALL_SCREEN ? 16 : 20} color="#ec4899" />
+                            </View>
+                            <Text style={styles.welcomeOutlineText}>Create Goal</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.welcomeSolidBtnShadow}
+                            onPress={() => navigation.navigate('Tasks')}
+                            activeOpacity={0.9}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary.dark, colors.primary.main, colors.accent.main]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.welcomeSolidBtn}
+                            >
+                                <View style={styles.welcomeSolidIconBg}>
+                                    <Ionicons name="add" size={IS_SMALL_SCREEN ? 16 : 18} color={colors.primary.main} />
+                                </View>
+                                <Text style={styles.welcomeSolidText}>Add Task</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.tipCard}>
+                        <View style={styles.tipIcon}>
+                            <Ionicons name="bulb" size={IS_SMALL_SCREEN ? 18 : 22} color={colors.primary.main} />
+                        </View>
+                        <Text style={styles.tipText}>
+                            Small steps every day{'\n'}lead to big results.
+                        </Text>
+                    </View>
+                </View>
+                ) : (
+                <>
                 {/* Today's Tasks Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
@@ -582,12 +695,11 @@ export const HomeScreen: React.FC = () => {
                         </View>
                     )}
                 </View>
+                </>
+                )}
 
 
             </ScrollView>
-
-            {/* Bottom safe area spacer for tab bar */}
-            <View style={{ height: insets.bottom }} />
 
             {/* Task Detail Modal */}
             <Modal
@@ -670,7 +782,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background.secondary,
     },
+    scrollView: {
+        flex: 1,
+    },
     scrollContent: {
+        paddingTop: spacing.lg,
         paddingBottom: 30,
     },
 
@@ -685,9 +801,9 @@ const styles = StyleSheet.create({
     // Hero Section - Beautiful Gradient Header
     heroSection: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.md + 4,
-        borderBottomLeftRadius: 28,
-        borderBottomRightRadius: 28,
+        paddingBottom: spacing.md,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
         overflow: 'hidden',
     },
     heroHeader: {
@@ -696,30 +812,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: spacing.md,
     },
-    userInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    avatar: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        backgroundColor: 'rgba(255,255,255,0.25)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.4)',
-    },
-    avatarImage: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-    },
-    avatarText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
+    heroHeaderLeft: {
+        flex: 1,
+        marginRight: spacing.sm,
     },
     heroGreeting: {
         fontSize: typography.fontSize.xs,
@@ -728,10 +823,77 @@ const styles = StyleSheet.create({
         marginBottom: 1,
     },
     heroName: {
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.bold as any,
+        fontSize: typography.fontSize.lg,
+        fontWeight: '800' as any,
         color: '#fff',
+        letterSpacing: -0.3,
     },
+    userInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    avatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.5)',
+    },
+    avatarImage: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+    },
+    avatarText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    decorCircle: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    decorCircle1: { width: 140, height: 140, top: -40, right: -30 },
+    decorCircle2: { width: 80, height: 80, bottom: -20, left: -20, backgroundColor: 'rgba(255,255,255,0.08)' },
+    decorCircle3: { width: 50, height: 50, top: 60, right: 80, backgroundColor: 'rgba(255,255,255,0.18)' },
+    decorCircle4: { width: 24, height: 24, bottom: 30, right: 50, backgroundColor: 'rgba(255,255,255,0.25)' },
+
+    // Background decorative bubbles (white area)
+    bgDecorWrap: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    bgBubble: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: colors.primary.background,
+        opacity: 0.6,
+    },
+    bgBubble1: { width: 220, height: 220, top: 350, right: -110 },
+    bgBubble2: { width: 160, height: 160, top: 540, left: -80 },
+    bgBubble3: { width: 120, height: 120, top: 700, right: -50 },
+    bgBubble4: { width: 70, height: 70, top: 390, left: 24, opacity: 0.5 },
+    bgBubble5: { width: 40, height: 40, top: 500, right: 30, opacity: 0.7 },
+    bgBubble6: { width: 90, height: 90, top: 640, left: 40, opacity: 0.4 },
+    bgBubble7: { width: 55, height: 55, top: 750, right: 80, opacity: 0.55 },
+
+    bgIcon: {
+        position: 'absolute',
+        opacity: 0.18,
+    },
+    bgIcon1: { top: 370, right: 22, transform: [{ rotate: '-12deg' }] },
+    bgIcon2: { top: 440, left: 18, transform: [{ rotate: '15deg' }] },
+    bgIcon3: { top: 510, right: 18, transform: [{ rotate: '-8deg' }] },
+    bgIcon4: { top: 580, left: 30, transform: [{ rotate: '20deg' }] },
+    bgIcon5: { top: 630, right: 28, transform: [{ rotate: '-15deg' }] },
+    bgIcon6: { top: 680, left: 24, transform: [{ rotate: '10deg' }] },
+    bgIcon7: { top: 730, right: 36, transform: [{ rotate: '-20deg' }] },
+    bgIcon8: { top: 770, left: 50, transform: [{ rotate: '8deg' }] },
     notificationButton: {
         width: 36,
         height: 36,
@@ -873,7 +1035,7 @@ const styles = StyleSheet.create({
     // Section
     section: {
         paddingHorizontal: spacing.lg,
-        marginTop: spacing.xl,
+        marginTop: spacing.lg,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -1086,6 +1248,176 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: 'rgba(255,255,255,0.9)',
         fontWeight: typography.fontWeight.medium as any,
+    },
+
+    // Welcome Empty State (no goals + no tasks) — responsive
+    welcomeEmptyWrap: {
+        alignItems: 'center',
+        paddingHorizontal: spacing.lg,
+        paddingTop: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+        paddingBottom: spacing.lg,
+    },
+    illustrationWrap: {
+        width: EMPTY_ILLUSTRATION_SIZE,
+        height: EMPTY_ILLUSTRATION_SIZE,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+    },
+    illustrationBubble: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: colors.primary.background,
+    },
+    illustrationBubble1: {
+        width: EMPTY_ILLUSTRATION_SIZE * 0.82,
+        height: EMPTY_ILLUSTRATION_SIZE * 0.82,
+        opacity: 0.55,
+    },
+    illustrationBubble2: {
+        width: EMPTY_ILLUSTRATION_SIZE * 0.36,
+        height: EMPTY_ILLUSTRATION_SIZE * 0.36,
+        top: EMPTY_ILLUSTRATION_SIZE * 0.09,
+        left: EMPTY_ILLUSTRATION_SIZE * 0.045,
+        opacity: 0.45,
+    },
+    illustrationBubble3: {
+        width: EMPTY_ILLUSTRATION_SIZE * 0.27,
+        height: EMPTY_ILLUSTRATION_SIZE * 0.27,
+        bottom: EMPTY_ILLUSTRATION_SIZE * 0.09,
+        right: EMPTY_ILLUSTRATION_SIZE * 0.04,
+        opacity: 0.55,
+    },
+    illustrationStarTL: {
+        position: 'absolute',
+        top: 0,
+        left: EMPTY_ILLUSTRATION_SIZE * 0.13,
+        opacity: 0.85,
+    },
+    illustrationStarTR: {
+        position: 'absolute',
+        top: EMPTY_ILLUSTRATION_SIZE * 0.05,
+        right: EMPTY_ILLUSTRATION_SIZE * 0.08,
+        opacity: 0.9,
+    },
+    illustrationIconRing: {
+        width: EMPTY_RING_SIZE,
+        height: EMPTY_RING_SIZE,
+        borderRadius: EMPTY_RING_SIZE / 2,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.primary.main,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+    welcomeTitle: {
+        fontSize: IS_SMALL_SCREEN ? 18 : 22,
+        fontWeight: '800' as any,
+        color: colors.text.primary,
+        textAlign: 'center',
+        marginBottom: spacing.xs,
+        letterSpacing: -0.3,
+    },
+    welcomeSubtitle: {
+        fontSize: IS_SMALL_SCREEN ? 13 : typography.fontSize.base,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+        lineHeight: IS_SMALL_SCREEN ? 18 : 22,
+    },
+    welcomeActionsRow: {
+        flexDirection: 'row',
+        gap: spacing.md,
+        width: '100%',
+        marginBottom: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+    },
+    welcomeOutlineBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingHorizontal: spacing.md,
+        paddingVertical: IS_SMALL_SCREEN ? 11 : 14,
+        borderWidth: 1,
+        borderColor: colors.primary.background,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    welcomeOutlineIconBg: {
+        width: IS_SMALL_SCREEN ? 26 : 30,
+        height: IS_SMALL_SCREEN ? 26 : 30,
+        borderRadius: IS_SMALL_SCREEN ? 13 : 15,
+        backgroundColor: '#fce7f3',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    welcomeOutlineText: {
+        fontSize: IS_SMALL_SCREEN ? 14 : typography.fontSize.base,
+        fontWeight: '700' as any,
+        color: colors.text.primary,
+    },
+    welcomeSolidBtnShadow: {
+        flex: 1,
+        borderRadius: 16,
+        shadowColor: colors.primary.main,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    welcomeSolidBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: IS_SMALL_SCREEN ? 10 : 12,
+        borderRadius: 16,
+    },
+    welcomeSolidIconBg: {
+        width: IS_SMALL_SCREEN ? 26 : 30,
+        height: IS_SMALL_SCREEN ? 26 : 30,
+        borderRadius: IS_SMALL_SCREEN ? 13 : 15,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    welcomeSolidText: {
+        fontSize: IS_SMALL_SCREEN ? 14 : typography.fontSize.base,
+        fontWeight: '700' as any,
+        color: '#fff',
+    },
+    tipCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        backgroundColor: '#e0f7f1',
+        borderRadius: 16,
+        padding: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+        width: '100%',
+    },
+    tipIcon: {
+        width: IS_SMALL_SCREEN ? 38 : 44,
+        height: IS_SMALL_SCREEN ? 38 : 44,
+        borderRadius: IS_SMALL_SCREEN ? 19 : 22,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tipText: {
+        flex: 1,
+        fontSize: IS_SMALL_SCREEN ? 13 : typography.fontSize.base,
+        fontWeight: '600' as any,
+        color: colors.text.primary,
+        lineHeight: IS_SMALL_SCREEN ? 17 : 20,
     },
 
     // Empty States

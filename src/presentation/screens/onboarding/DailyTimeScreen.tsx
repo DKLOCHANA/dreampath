@@ -26,7 +26,7 @@ export const DailyTimeScreen: React.FC = () => {
 
     return (
         <QuestionFrame
-            step={13}
+            step={14}
             label="QUESTION 5/6"
             title="How much time can you actually give it each day?"
             sub="Pick what's true, not what sounds good."

@@ -36,8 +36,8 @@ export const Checkin2Screen: React.FC = () => {
             onBack={() => navigation.goBack()}
             footer={
                 <OnboardingButton
-                    title="Build today's step"
-                    onPress={() => navigation.navigate('MiniPlan')}
+                    title="Build my plan"
+                    onPress={() => navigation.navigate('PlanWizard')}
                     disabled={!checkin2}
                 />
             }

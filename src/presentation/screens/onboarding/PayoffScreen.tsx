@@ -23,14 +23,14 @@ export const PayoffScreen: React.FC = () => {
 
     return (
         <QuestionFrame
-            step={14}
+            step={15}
             label="QUESTION 6/6"
             title="When this is done — what does it feel like?"
             options={OPTIONS}
             value={payoff}
             onChange={(v) => setAnswer('payoff', v)}
             onBack={() => navigation.goBack()}
-            onContinue={() => navigation.navigate('Mirror')}
+            onContinue={() => navigation.navigate('Analytics')}
         />
     );
 };

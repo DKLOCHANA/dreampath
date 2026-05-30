@@ -102,13 +102,23 @@ export interface GoalWizardData {
 }
 
 interface GoalWizardProps {
-    mode: 'fullscreen' | 'drawer';
+    mode: 'fullscreen' | 'drawer' | 'onboarding';
     onComplete: (data: GoalWizardData, goal?: Goal) => void;
     onClose?: () => void;
     onSkip?: () => void; // For fullscreen mode - skip goal creation
     initialStep?: number;
     totalSteps?: number;
     stepOffset?: number; // For onboarding where we start at step 2 of 5
+    /** Override the fullscreen header copy. */
+    headerTitle?: string;
+    headerSubtitle?: string;
+    /** Hide the success alert and hand off immediately via onComplete (used in onboarding flow). */
+    suppressSuccessAlert?: boolean;
+    /** Pre-fill values (used when onboarding has already captured related answers). */
+    initialCategory?: GoalCategory | '';
+    initialDailyHours?: string;
+    initialChallenges?: string[];
+    initialAge?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -123,7 +133,15 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
     initialStep = 1,
     totalSteps = 5,
     stepOffset = 0,
+    headerTitle,
+    headerSubtitle,
+    suppressSuccessAlert = false,
+    initialCategory = '',
+    initialDailyHours = '',
+    initialChallenges = [],
+    initialAge = '',
 }) => {
+    const isFullscreenHeader = mode === 'fullscreen' || mode === 'onboarding';
     const user = useAuthStore((state) => state.user);
     const [currentStep, setCurrentStep] = useState(initialStep);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,7 +149,7 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Step 1: Goal Details
-    const [category, setCategory] = useState<GoalCategory | ''>('');
+    const [category, setCategory] = useState<GoalCategory | ''>(initialCategory);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
 
@@ -147,14 +165,14 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
     const [showTargetDatePicker, setShowTargetDatePicker] = useState(false);
 
     // Step 3: Personal
-    const [age, setAge] = useState('');
+    const [age, setAge] = useState(initialAge);
     const [occupation, setOccupation] = useState('');
-    const [dailyHours, setDailyHours] = useState('');
+    const [dailyHours, setDailyHours] = useState(initialDailyHours);
     const [monthlyBudget, setMonthlyBudget] = useState('');
 
     // Step 4: Experience & Challenges
     const [experienceLevel, setExperienceLevel] = useState('');
-    const [challenges, setChallenges] = useState<string[]>([]);
+    const [challenges, setChallenges] = useState<string[]>(initialChallenges);
     const [customChallenge, setCustomChallenge] = useState('');
 
     const WIZARD_TOTAL_STEPS = 5;
@@ -220,6 +238,21 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
         } else {
             onClose?.();
         }
+    };
+
+    // Finish handler — either fires the success Alert or hands off silently.
+    const finish = (
+        title: string,
+        message: string,
+        cta: string,
+        wizardData: GoalWizardData,
+        goal: Goal,
+    ) => {
+        if (suppressSuccessAlert) {
+            onComplete(wizardData, goal);
+            return;
+        }
+        Alert.alert(title, message, [{ text: cta, onPress: () => onComplete(wizardData, goal) }]);
     };
 
     // Handle submit
@@ -314,21 +347,25 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                     setLoadingMessage('');
                     setIsSubmitting(false);
 
-                    Alert.alert(
+                    finish(
                         'No Internet Connection',
                         `Your goal "${newGoal.title}" has been saved with ${tasks.length} tasks.\n\n` +
                         `📶 Connect to the internet for AI-enhanced personalized plans!`,
-                        [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                        'OK',
+                        wizardData,
+                        newGoal,
                     );
                     return;
                 } catch (offlineError: any) {
                     console.error('[GoalWizard] Offline generation failed:', offlineError.message);
                     setLoadingMessage('');
                     setIsSubmitting(false);
-                    Alert.alert(
+                    finish(
                         'Goal Created',
                         `Your goal "${newGoal.title}" has been saved.\n\nTask generation failed - you can add tasks manually.`,
-                        [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                        'OK',
+                        wizardData,
+                        newGoal,
                     );
                     return;
                 }
@@ -339,16 +376,18 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                 setLoadingMessage('🤖 AI is creating your personalized plan...');
                 console.log('[GoalWizard] Using hybrid task generation approach...');
 
-                // Step 1: Generate weekly patterns (single AI call)
-                let weeklyPatterns;
-                try {
-                    setLoadingMessage('🧠 Creating weekly patterns...');
-                    weeklyPatterns = await generateWeeklyPatternsWithAI(newGoal, wizardData, totalWeeks);
-                    console.log('[GoalWizard] Weekly patterns generated:', weeklyPatterns.patterns.length);
-                } catch (patternError) {
-                    console.log('[GoalWizard] AI patterns failed, using defaults');
-                    weeklyPatterns = generateDefaultPatterns(newGoal, wizardData, totalWeeks);
-                }
+                // Step 1: Generate weekly patterns (single AI call).
+                // No silent fallback to defaults here — if the patterns endpoint fails,
+                // we want to bubble out to the outer catch and try the personalized
+                // /api/generate-plan endpoint, which uses the goal title in its prompt.
+                setLoadingMessage('🧠 Creating weekly patterns...');
+                const weeklyPatterns = await generateWeeklyPatternsWithAI(newGoal, wizardData, totalWeeks);
+                console.log(
+                    '[GoalWizard] Weekly patterns generated for:',
+                    newGoal.title,
+                    '— count:',
+                    weeklyPatterns.patterns.length,
+                );
 
                 // Step 2: Generate first batch of tasks using hybrid approach (with sync)
                 setLoadingMessage('📋 Creating your personalized tasks...');
@@ -381,28 +420,39 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                     ? `\n📅 More tasks will be generated as you progress!`
                     : '';
 
-                Alert.alert(
+                finish(
                     '🎯 Goal Created!',
                     `${weeklyPatterns.motivationalMessage}\n\n` +
                     `✨ ${tasks.length} personalized tasks generated!\n` +
                     `📆 ${totalWeeks} weeks plan\n` +
                     `🎯 ${Math.round(weeklyPatterns.successProbability * 100)}% success probability` +
                     batchNote,
-                    [{ text: 'Let\'s Go!', onPress: () => onComplete(wizardData, newGoal) }]
+                    "Let's Go!",
+                    wizardData,
+                    newGoal,
                 );
                 return;
             } catch (aiError: any) {
-                console.warn('[GoalWizard] Hybrid generation failed:', aiError.message);
-                
+                console.warn('[GoalWizard] Patterns path failed:', aiError.message, '— trying personalized /api/generate-plan');
+
+                // Content-policy blocks should never silently fall through to defaults.
+                if ((aiError as any).blocked) {
+                    setLoadingMessage('');
+                    setIsSubmitting(false);
+                    handleBlockedApiResponse(aiError);
+                    return;
+                }
+
                 // Fallback: Try the original AI plan generation
                 try {
-                    setLoadingMessage('🔄 Trying alternative approach...');
+                    setLoadingMessage('🔄 Generating personalized plan...');
                     const { tasks, plan } = await generatePlanWithAI(
                         newGoal,
                         wizardData,
                         user?.id,
                         user?.displayName
                     );
+                    console.log('[GoalWizard] Personalized plan generated for:', newGoal.title, '— tasks:', tasks.length);
 
                     if (tasks.length > 0) {
                         await saveTasksWithSync(tasks);
@@ -413,10 +463,12 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                     setLoadingMessage('');
                     setIsSubmitting(false);
 
-                    Alert.alert(
+                    finish(
                         '🎯 Goal Created!',
                         `${plan.motivationalMessage}\n\n✨ ${tasks.length} personalized tasks generated!\n📅 ${plan.totalWeeks} weeks plan\n🎯 ${Math.round(plan.successProbability * 100)}% success probability`,
-                        [{ text: 'Let\'s Go!', onPress: () => onComplete(wizardData, newGoal) }]
+                        "Let's Go!",
+                        wizardData,
+                        newGoal,
                     );
                     return;
                 } catch (fallbackError: any) {
@@ -441,11 +493,13 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                         setLoadingMessage('');
                         setIsSubmitting(false);
 
-                        Alert.alert(
+                        finish(
                             '🎯 Goal Created!',
                             `Your goal "${newGoal.title}" has been saved with ${tasks.length} tasks.\n\n` +
                             `📝 Tasks were generated offline. Connect to internet for AI-enhanced plans!`,
-                            [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                            'OK',
+                            wizardData,
+                            newGoal,
                         );
                         return;
                     } catch (offlineError: any) {
@@ -454,10 +508,12 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                         setIsSubmitting(false);
 
                         // Goal is saved, but no tasks - user can still proceed
-                        Alert.alert(
+                        finish(
                             'Goal Created',
                             `Your goal "${newGoal.title}" has been saved.\n\nTask generation is temporarily unavailable - you can add tasks manually.`,
-                            [{ text: 'OK', onPress: () => onComplete(wizardData, newGoal) }]
+                            'OK',
+                            wizardData,
+                            newGoal,
                         );
                         return;
                     }
@@ -928,13 +984,15 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
         >
-            {/* Fullscreen Header */}
-            {mode === 'fullscreen' && (
+            {/* Fullscreen / Onboarding Header */}
+            {isFullscreenHeader && (
                 <View style={styles.fullscreenHeader}>
                     <View style={styles.fullscreenHeaderRow}>
                         <View style={styles.fullscreenHeaderContent}>
                             <Ionicons name="sparkles" size={24} color={colors.primary.main} />
-                            <Text style={styles.fullscreenTitle}>Create Your First Goal</Text>
+                            <Text style={styles.fullscreenTitle}>
+                                {headerTitle ?? 'Create Your First Goal'}
+                            </Text>
                         </View>
                         {onSkip && (
                             <TouchableOpacity onPress={onSkip} style={styles.skipButton}>
@@ -943,7 +1001,7 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
                         )}
                     </View>
                     <Text style={styles.fullscreenSubtitle}>
-                        Let's set up your personalized path to success
+                        {headerSubtitle ?? "Let's set up your personalized path to success"}
                     </Text>
                 </View>
             )}
@@ -967,7 +1025,8 @@ export const GoalWizard: React.FC<GoalWizardProps> = ({
 
             {/* Navigation Buttons */}
             <View style={styles.buttonSection}>
-                {/* Hide back button on step 1 for fullscreen (user must create a goal) */}
+                {/* On step 1: fullscreen hides back; onboarding shows back so user can
+                    return to the previous onboarding screen via onClose. */}
                 {!(mode === 'fullscreen' && currentStep === 1) ? (
                     <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                         <Text style={styles.backText}>

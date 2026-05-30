@@ -14,7 +14,7 @@ import {
     Easing,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +28,7 @@ import { Goal, GoalCategory } from '@/domain/entities/Goal';
 import { Task } from '@/domain/entities/Task';
 import { getGoals, getTasks } from '@/data';
 import { getGoalsLocally, getTasksLocally } from '@/data/localDataService';
-import { useIsPro, useIsExpired } from '@/infrastructure/stores/subscriptionStore';
+import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
 import { isOnline } from '@/services/networkService';
@@ -171,8 +171,8 @@ const CircularProgress: React.FC<{
 
 export const AnalyticsScreen: React.FC = () => {
     const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
+    const insets = useSafeAreaInsets();
     const isPro = useIsPro();
-    const isExpired = useIsExpired();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -767,36 +767,30 @@ export const AnalyticsScreen: React.FC = () => {
                 <StatusBar style="dark" />
                 <View style={styles.premiumGateContainer}>
                     <LinearGradient
-                        colors={isExpired ? ['#f59e0b', '#d97706'] : ['#667eea', '#764ba2']}
+                        colors={['#667eea', '#764ba2']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.premiumGateIcon}
                     >
-                        <Ionicons name={isExpired ? 'time-outline' : 'lock-closed'} size={36} color="#fff" />
+                        <Ionicons name="lock-closed" size={36} color="#fff" />
                     </LinearGradient>
-                    <Text style={styles.premiumGateTitle}>
-                        {isExpired ? 'Subscription Expired' : 'Premium Feature'}
-                    </Text>
+                    <Text style={styles.premiumGateTitle}>Premium Feature</Text>
                     <Text style={styles.premiumGateDescription}>
-                        {isExpired
-                            ? 'Your subscription has expired. Reactivate to access Advanced Analytics & AI Insights.'
-                            : 'Advanced Analytics & AI Insights are available exclusively for VividGoals Pro subscribers.'}
+                        Advanced Analytics & AI Insights are available exclusively for VividGoals Pro subscribers.
                     </Text>
                     <TouchableOpacity
                         style={styles.premiumGateButton}
-                        onPress={() => navigation.navigate(isExpired ? 'ExpiredSubscription' : 'Paywall')}
+                        onPress={() => navigation.navigate('Paywall')}
                         activeOpacity={0.8}
                     >
                         <LinearGradient
-                            colors={isExpired ? ['#f59e0b', '#d97706'] : ['#667eea', '#764ba2']}
+                            colors={['#667eea', '#764ba2']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.premiumGateButtonGradient}
                         >
-                            <Ionicons name={isExpired ? 'refresh' : 'diamond'} size={18} color="#fff" />
-                            <Text style={styles.premiumGateButtonText}>
-                                {isExpired ? 'Reactivate' : 'Unlock with Pro'}
-                            </Text>
+                            <Ionicons name="diamond" size={18} color="#fff" />
+                            <Text style={styles.premiumGateButtonText}>Unlock with Pro</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
@@ -817,8 +811,8 @@ export const AnalyticsScreen: React.FC = () => {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar style="dark" />
+        <View style={styles.container}>
+            <StatusBar style="light" />
 
             {/* AI Report Generation Modal */}
             <Modal
@@ -903,18 +897,8 @@ export const AnalyticsScreen: React.FC = () => {
                 </View>
             </Modal>
 
-            {/* Header */}
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.title}>Analytics</Text>
-                    <Text style={styles.subtitle}>
-                        Week of {getWeekRangeString()}
-                    </Text>
-                </View>
-            </View>
-
             <ScrollView
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacing.xl }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
@@ -922,43 +906,105 @@ export const AnalyticsScreen: React.FC = () => {
                         onRefresh={onRefresh}
                         tintColor={colors.primary.main}
                         colors={[colors.primary.main]}
+                        progressViewOffset={insets.top + 80}
                     />
                 }
             >
-                {/* Overall Progress Card */}
-                <View style={styles.overviewCardShadow}>
+                {/* Background decorative bubbles + outlined icons */}
+                <View pointerEvents="none" style={styles.bgDecorWrap}>
+                    <View style={[styles.bgBubble, styles.bgBubble1]} />
+                    <View style={[styles.bgBubble, styles.bgBubble2]} />
+                    <View style={[styles.bgBubble, styles.bgBubble3]} />
+                    <View style={[styles.bgBubble, styles.bgBubble4]} />
+                    <View style={[styles.bgBubble, styles.bgBubble5]} />
+                    <View style={[styles.bgBubble, styles.bgBubble6]} />
+                    <View style={[styles.bgBubble, styles.bgBubble7]} />
+
+                    <View style={[styles.bgIcon, styles.bgIcon1]}>
+                        <Ionicons name="trophy-outline" size={56} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon2]}>
+                        <Ionicons name="flag-outline" size={44} color={colors.accent.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon3]}>
+                        <Ionicons name="checkmark-done-circle-outline" size={64} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon4]}>
+                        <Ionicons name="star-outline" size={40} color={colors.accent.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon5]}>
+                        <Ionicons name="ribbon-outline" size={52} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon6]}>
+                        <Ionicons name="rocket-outline" size={48} color={colors.accent.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon7]}>
+                        <Ionicons name="medal-outline" size={44} color={colors.primary.light} />
+                    </View>
+                    <View style={[styles.bgIcon, styles.bgIcon8]}>
+                        <Ionicons name="bulb-outline" size={38} color={colors.accent.light} />
+                    </View>
+                </View>
+
+                {/* Gradient Hero Header */}
+                <View style={[styles.heroSection, { paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl + spacing.lg }]}>
                     <LinearGradient
-                        colors={['#667eea', '#764ba2']}
+                        colors={[colors.primary.dark, colors.primary.main, colors.accent.main]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                        style={styles.overviewCard}
-                    >
-                        <View style={styles.overviewLeft}>
-                            <Text style={styles.overviewLabel}>Overall Progress</Text>
-                            <Text style={styles.overviewValue}>{overallProgress}%</Text>
-                            <View style={styles.overviewChange}>
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                    {/* Decorative translucent circles */}
+                    <View style={[styles.decorCircle, styles.decorCircle1]} />
+                    <View style={[styles.decorCircle, styles.decorCircle2]} />
+                    <View style={[styles.decorCircle, styles.decorCircle3]} />
+                    <View style={[styles.decorCircle, styles.decorCircle4]} />
+
+                    <View style={styles.heroContent}>
+                        <View style={styles.heroTopRow}>
+                            <View style={styles.heroTopLeft}>
+                                <View style={styles.heroBadge}>
+                                    <Ionicons name="analytics" size={14} color="#fff" />
+                                    <Text style={styles.heroBadgeText}>WEEKLY REPORT</Text>
+                                </View>
+                                <Text style={styles.heroTitle}>Analytics</Text>
+                                <Text style={styles.heroSubtitle}>
+                                    Week of {getWeekRangeString()}
+                                </Text>
+                            </View>
+                            <CircularProgress
+                                progress={overallProgress}
+                                size={86}
+                                strokeWidth={7}
+                                color="#fff"
+                                backgroundColor="rgba(255,255,255,0.3)"
+                            >
+                                <Ionicons name="trophy" size={28} color="#fff" />
+                            </CircularProgress>
+                        </View>
+
+                        <View style={styles.heroDivider} />
+
+                        <View style={styles.heroProgressRow}>
+                            <View>
+                                <Text style={styles.heroProgressLabel}>Overall Progress</Text>
+                                <Text style={styles.heroProgressValue}>{overallProgress}%</Text>
+                            </View>
+                            <View style={styles.heroChangePill}>
                                 <Ionicons
                                     name={weeklyChange >= 0 ? 'trending-up' : 'trending-down'}
-                                    size={16}
+                                    size={14}
                                     color="#fff"
                                 />
-                                <Text style={styles.overviewChangeText}>
+                                <Text style={styles.heroChangeText}>
                                     {weeklyChange >= 0 ? '+' : ''}{weeklyChange}% vs last week
                                 </Text>
                             </View>
                         </View>
-                        <CircularProgress
-                            progress={overallProgress}
-                            size={90}
-                            strokeWidth={8}
-                            color="#fff"
-                            backgroundColor="rgba(255,255,255,0.3)"
-                        >
-                            <Ionicons name="trophy" size={32} color="#fff" />
-                        </CircularProgress>
-                    </LinearGradient>
+                    </View>
                 </View>
 
+                <View style={styles.contentInner}>
                 {/* Quick Stats Row */}
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
@@ -1299,8 +1345,9 @@ export const AnalyticsScreen: React.FC = () => {
                 )}
 
                 <View style={{ height: 40 }} />
+                </View>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -1388,8 +1435,165 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     scrollContent: {
-        padding: spacing.lg,
+        paddingBottom: spacing.xl,
     },
+    contentInner: {
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.lg,
+    },
+
+    // Gradient hero header
+    heroSection: {
+        width: '100%',
+        overflow: 'hidden',
+        borderBottomLeftRadius: 28,
+        borderBottomRightRadius: 28,
+        paddingHorizontal: spacing.lg,
+    },
+    heroContent: {
+        zIndex: 2,
+    },
+    heroTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    heroTopLeft: {
+        flex: 1,
+    },
+    heroDivider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        marginTop: spacing.md,
+        marginBottom: spacing.md,
+    },
+    heroProgressRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: spacing.md,
+    },
+    heroProgressLabel: {
+        fontSize: typography.fontSize.xs,
+        color: 'rgba(255,255,255,0.8)',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+        fontWeight: '600' as any,
+    },
+    heroProgressValue: {
+        fontSize: 36,
+        fontWeight: '800' as any,
+        color: '#fff',
+        marginTop: 2,
+        letterSpacing: -1,
+    },
+    heroChangePill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+    },
+    heroChangeText: {
+        fontSize: typography.fontSize.xs,
+        color: '#fff',
+        fontWeight: '600' as any,
+    },
+    heroBadge: {
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        marginBottom: spacing.sm,
+    },
+    heroBadgeText: {
+        fontSize: 10,
+        fontWeight: '700' as any,
+        color: '#fff',
+        letterSpacing: 1,
+    },
+    heroTitle: {
+        fontSize: 32,
+        fontWeight: '800' as any,
+        color: '#fff',
+        letterSpacing: -0.5,
+    },
+    heroSubtitle: {
+        fontSize: typography.fontSize.sm,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: 4,
+    },
+    decorCircle: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    decorCircle1: {
+        width: 140,
+        height: 140,
+        top: -40,
+        right: -30,
+    },
+    decorCircle2: {
+        width: 80,
+        height: 80,
+        bottom: -20,
+        left: -20,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    decorCircle3: {
+        width: 50,
+        height: 50,
+        top: 60,
+        right: 80,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+    },
+    decorCircle4: {
+        width: 24,
+        height: 24,
+        bottom: 30,
+        right: 50,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+    },
+
+    // Background decorative bubbles (white area)
+    bgDecorWrap: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    bgBubble: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: colors.primary.background,
+        opacity: 0.6,
+    },
+    bgBubble1: { width: 220, height: 220, top: 360, right: -110 },
+    bgBubble2: { width: 160, height: 160, top: 620, left: -80 },
+    bgBubble3: { width: 120, height: 120, top: 880, right: -50 },
+    bgBubble4: { width: 70, height: 70, top: 280, left: 24, opacity: 0.5 },
+    bgBubble5: { width: 40, height: 40, top: 540, right: 30, opacity: 0.7 },
+    bgBubble6: { width: 90, height: 90, top: 780, left: 40, opacity: 0.4 },
+    bgBubble7: { width: 55, height: 55, top: 1020, right: 80, opacity: 0.55 },
+
+    bgIcon: {
+        position: 'absolute',
+        opacity: 0.18,
+    },
+    bgIcon1: { top: 300, right: 22, transform: [{ rotate: '-12deg' }] },
+    bgIcon2: { top: 420, left: 18, transform: [{ rotate: '15deg' }] },
+    bgIcon3: { top: 560, right: 18, transform: [{ rotate: '-8deg' }] },
+    bgIcon4: { top: 690, left: 30, transform: [{ rotate: '20deg' }] },
+    bgIcon5: { top: 820, right: 28, transform: [{ rotate: '-15deg' }] },
+    bgIcon6: { top: 940, left: 24, transform: [{ rotate: '10deg' }] },
+    bgIcon7: { top: 1060, right: 36, transform: [{ rotate: '-20deg' }] },
+    bgIcon8: { top: 1170, left: 50, transform: [{ rotate: '8deg' }] },
 
     // Overview Card
     overviewCardShadow: {

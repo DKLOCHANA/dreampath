@@ -14,7 +14,7 @@ import {
     Animated,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -29,7 +29,7 @@ import { Goal, GoalCategory, GoalPriority } from '@/domain/entities/Goal';
 import { getGoals, getTasks, deleteGoal, updateTaskStatus, USE_LOCAL_DATA } from '@/data';
 import { Task } from '@/domain/entities/Task';
 import { useAuthStore } from '@/infrastructure/stores/authStore';
-import { useIsPro, useIsExpired } from '@/infrastructure/stores/subscriptionStore';
+import { useIsPro } from '@/infrastructure/stores/subscriptionStore';
 import { GoalWizard, GoalWizardData } from '@/presentation/components/goal/GoalWizard';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '@/presentation/navigation/types';
@@ -37,6 +37,9 @@ import { checkConnectivityWithAlert, isNetworkError } from '@/services/networkSe
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.28; // ~1/4 of screen
+const IS_SMALL_SCREEN = SCREEN_HEIGHT < 740;
+const EMPTY_ILLUSTRATION_SIZE = IS_SMALL_SCREEN ? 150 : 200;
+const EMPTY_RING_SIZE = IS_SMALL_SCREEN ? 90 : 124;
 
 // Circular Progress Component
 const CircularProgress: React.FC<{
@@ -163,10 +166,10 @@ const getTaskPriorityColor = (priority: Task['priority']): string => {
 };
 
 export const GoalsScreen: React.FC = () => {
+    const insets = useSafeAreaInsets();
     const user = useAuthStore((state) => state.user);
     const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
     const isPro = useIsPro();
-    const isExpired = useIsExpired();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [refreshing, setRefreshing] = useState(false);
@@ -186,7 +189,7 @@ export const GoalsScreen: React.FC = () => {
 
     const handleCreateGoal = () => {
         if (!isPro && goals.length >= 1) {
-            navigation.navigate(isExpired ? 'ExpiredSubscription' : 'Paywall');
+            navigation.navigate('Paywall');
             return;
         }
         setShowAddGoal(true);
@@ -454,30 +457,97 @@ export const GoalsScreen: React.FC = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar style="dark" />
+        <View style={styles.container}>
+            <StatusBar style="light" />
+
+            {/* Background decorative bubbles + outlined goal icons — fixed to screen */}
+            <View pointerEvents="none" style={styles.bgDecorWrap}>
+                <View style={[styles.bgBubble, styles.bgBubble1]} />
+                <View style={[styles.bgBubble, styles.bgBubble2]} />
+                <View style={[styles.bgBubble, styles.bgBubble3]} />
+                <View style={[styles.bgBubble, styles.bgBubble4]} />
+                <View style={[styles.bgBubble, styles.bgBubble5]} />
+                <View style={[styles.bgBubble, styles.bgBubble6]} />
+                <View style={[styles.bgBubble, styles.bgBubble7]} />
+
+                <View style={[styles.bgIcon, styles.bgIcon1]}>
+                    <Ionicons name="flag-outline" size={56} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon2]}>
+                    <Ionicons name="trophy-outline" size={48} color={colors.accent.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon3]}>
+                    <Ionicons name="rocket-outline" size={52} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon4]}>
+                    <Ionicons name="star-outline" size={42} color={colors.accent.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon5]}>
+                    <Ionicons name="ribbon-outline" size={48} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon6]}>
+                    <Ionicons name="medal-outline" size={46} color={colors.accent.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon7]}>
+                    <Ionicons name="compass-outline" size={50} color={colors.primary.light} />
+                </View>
+                <View style={[styles.bgIcon, styles.bgIcon8]}>
+                    <Ionicons name="sparkles-outline" size={40} color={colors.accent.light} />
+                </View>
+            </View>
 
             <ScrollView
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacing['2xl'] }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={colors.primary.main}
+                        colors={[colors.primary.main]}
+                        progressViewOffset={insets.top + 80}
+                    />
                 }
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <View>
-                        <Text style={styles.title}>My Goals</Text>
-                        <Text style={styles.subtitle}>
-                            {activeGoals.length} active • {completedGoals.length} completed
-                        </Text>
+                {/* Gradient Hero Header */}
+                <View style={[styles.heroSection, { paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl + spacing.md }]}>
+                    <LinearGradient
+                        colors={[colors.primary.dark, colors.primary.main, colors.accent.main]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                    {/* Decorative translucent circles */}
+                    <View style={[styles.decorCircle, styles.decorCircle1]} />
+                    <View style={[styles.decorCircle, styles.decorCircle2]} />
+                    <View style={[styles.decorCircle, styles.decorCircle3]} />
+                    <View style={[styles.decorCircle, styles.decorCircle4]} />
+
+                    <View style={styles.heroContent}>
+                        <View style={styles.heroTopRow}>
+                            <View style={styles.heroTopLeft}>
+                                <View style={styles.heroBadge}>
+                                    <Ionicons name="flag" size={14} color="#fff" />
+                                    <Text style={styles.heroBadgeText}>MY GOALS</Text>
+                                </View>
+                                <Text style={styles.heroTitle}>My Goals</Text>
+                                <Text style={styles.heroSubtitle}>
+                                    {activeGoals.length} active • {completedGoals.length} completed
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.heroNewGoalButton}
+                                onPress={handleCreateGoal}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="add" size={18} color={colors.primary.main} />
+                                <Text style={styles.heroNewGoalButtonText}>New</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    <TouchableOpacity style={styles.newGoalButton} onPress={handleCreateGoal}>
-                        <Ionicons name="add" size={18} color="#fff" />
-                        <Text style={styles.newGoalButtonText}>New Goal</Text>
-                    </TouchableOpacity>
                 </View>
 
+                <View style={styles.contentInner}>
                 {/* Goals List */}
                 {goals.length > 0 ? (
                     <View style={styles.goalsList}>
@@ -487,21 +557,96 @@ export const GoalsScreen: React.FC = () => {
                         ))}
                     </View>
                 ) : (
-                    /* Empty State */
-                    <View style={styles.emptyContainer}>
-                        <View style={styles.emptyIconContainer}>
-                            <Ionicons name="flag-outline" size={48} color={colors.text.tertiary} />
+                    /* Empty State — Illustration + CTA + Suggestions */
+                    <View style={styles.emptyWrap}>
+                        {/* Illustration block (target with decorative bubbles) */}
+                        <View style={styles.illustrationWrap}>
+                            <View style={[styles.illustrationBubble, styles.illustrationBubble1]} />
+                            <View style={[styles.illustrationBubble, styles.illustrationBubble2]} />
+                            <View style={[styles.illustrationBubble, styles.illustrationBubble3]} />
+                            <View style={styles.illustrationStarTL}>
+                                <Ionicons name="star" size={18} color={colors.accent.main} />
+                            </View>
+                            <View style={styles.illustrationStarTR}>
+                                <Ionicons name="sparkles" size={20} color={colors.primary.main} />
+                            </View>
+                            <View style={styles.illustrationIconRing}>
+                                <View style={styles.dartboardRing1}>
+                                    <View style={styles.dartboardRing2}>
+                                        <View style={styles.dartboardRing3}>
+                                            <View style={styles.dartboardCenter} />
+                                        </View>
+                                    </View>
+                                </View>
+                            </View>
                         </View>
-                        <Text style={styles.emptyTitle}>No goals yet</Text>
-                        <Text style={styles.emptyText}>
-                            Start by creating your first goal. Our AI will help you break it down into achievable steps.
+
+                        <Text style={styles.emptyHeroTitle}>
+                            You don't have any goals yet <Text style={{ color: colors.accent.main }}>✨</Text>
                         </Text>
-                        <TouchableOpacity style={styles.emptyButton} onPress={handleCreateGoal}>
-                            <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                            <Text style={styles.emptyButtonText}>Create Your First Goal</Text>
+                        <Text style={styles.emptyHeroSubtitle}>
+                            Set your first goal and start{'\n'}tracking your progress.
+                        </Text>
+
+                        <TouchableOpacity
+                            style={styles.emptyCtaShadow}
+                            onPress={handleCreateGoal}
+                            activeOpacity={0.9}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary.dark, colors.primary.main, colors.accent.main]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.emptyCta}
+                            >
+                                <Ionicons name="add" size={22} color="#fff" />
+                                <Text style={styles.emptyCtaText}>Create Your First Goal</Text>
+                            </LinearGradient>
                         </TouchableOpacity>
+
+                        {/* Suggestions panel */}
+                        <View style={styles.suggestionsPanel}>
+                            <Text style={styles.suggestionsTitle}>Not sure where to start?</Text>
+                            <Text style={styles.suggestionsSubtitle}>Here are some ideas to get you going</Text>
+                            <View style={styles.suggestionRow}>
+                                <TouchableOpacity
+                                    style={styles.suggestionCard}
+                                    onPress={handleCreateGoal}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={[styles.suggestionIconBg, { backgroundColor: colors.primary.main + '18' }]}>
+                                        <Ionicons name="briefcase" size={22} color={colors.primary.main} />
+                                    </View>
+                                    <Text style={styles.suggestionLabel}>Career</Text>
+                                    <Text style={styles.suggestionDesc}>Advance your skills & growth</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.suggestionCard}
+                                    onPress={handleCreateGoal}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={[styles.suggestionIconBg, { backgroundColor: '#fce7f3' }]}>
+                                        <Ionicons name="heart" size={22} color="#ec4899" />
+                                    </View>
+                                    <Text style={styles.suggestionLabel}>Health</Text>
+                                    <Text style={styles.suggestionDesc}>Build healthy habits</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.suggestionCard}
+                                    onPress={handleCreateGoal}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={[styles.suggestionIconBg, { backgroundColor: colors.accent.main + '18' }]}>
+                                        <Ionicons name="airplane" size={22} color={colors.accent.main} />
+                                    </View>
+                                    <Text style={styles.suggestionLabel}>Travel</Text>
+                                    <Text style={styles.suggestionDesc}>Explore new places</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
                 )}
+                </View>
             </ScrollView>
 
             {/* Add Goal Bottom Sheet Modal - Using Shared GoalWizard */}
@@ -654,7 +799,7 @@ export const GoalsScreen: React.FC = () => {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -664,9 +809,122 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background.secondary,
     },
     scrollContent: {
-        padding: spacing.screenPadding,
         paddingBottom: spacing['2xl'],
     },
+    contentInner: {
+        paddingHorizontal: spacing.screenPadding,
+        paddingTop: spacing.lg,
+    },
+
+    // Gradient hero header
+    heroSection: {
+        width: '100%',
+        overflow: 'hidden',
+        borderBottomLeftRadius: 28,
+        borderBottomRightRadius: 28,
+        paddingHorizontal: spacing.screenPadding,
+    },
+    heroContent: {
+        zIndex: 2,
+    },
+    heroTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: spacing.sm,
+    },
+    heroTopLeft: {
+        flex: 1,
+    },
+    heroBadge: {
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        marginBottom: spacing.sm,
+    },
+    heroBadgeText: {
+        fontSize: 10,
+        fontWeight: '700' as any,
+        color: '#fff',
+        letterSpacing: 1,
+    },
+    heroTitle: {
+        fontSize: 32,
+        fontWeight: '800' as any,
+        color: '#fff',
+        letterSpacing: -0.5,
+    },
+    heroSubtitle: {
+        fontSize: typography.fontSize.sm,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: 4,
+    },
+    heroNewGoalButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 14,
+        backgroundColor: '#fff',
+        marginTop: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    heroNewGoalButtonText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.primary.main,
+        fontWeight: '700' as any,
+    },
+    decorCircle: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    decorCircle1: { width: 140, height: 140, top: -40, right: -30 },
+    decorCircle2: { width: 80, height: 80, bottom: -20, left: -20, backgroundColor: 'rgba(255,255,255,0.08)' },
+    decorCircle3: { width: 50, height: 50, top: 60, right: 80, backgroundColor: 'rgba(255,255,255,0.18)' },
+    decorCircle4: { width: 24, height: 24, bottom: 30, right: 50, backgroundColor: 'rgba(255,255,255,0.25)' },
+
+    // Background decorative bubbles (white area)
+    bgDecorWrap: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    bgBubble: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: colors.primary.background,
+        opacity: 0.6,
+    },
+    bgBubble1: { width: 220, height: 220, top: 240, right: -110 },
+    bgBubble2: { width: 160, height: 160, top: 460, left: -80 },
+    bgBubble3: { width: 120, height: 120, top: 640, right: -50 },
+    bgBubble4: { width: 70, height: 70, top: 270, left: 24, opacity: 0.5 },
+    bgBubble5: { width: 40, height: 40, top: 410, right: 30, opacity: 0.7 },
+    bgBubble6: { width: 90, height: 90, top: 580, left: 40, opacity: 0.4 },
+    bgBubble7: { width: 55, height: 55, top: 700, right: 80, opacity: 0.55 },
+
+    bgIcon: {
+        position: 'absolute',
+        opacity: 0.18,
+    },
+    bgIcon1: { top: 260, right: 22, transform: [{ rotate: '-12deg' }] },
+    bgIcon2: { top: 340, left: 18, transform: [{ rotate: '15deg' }] },
+    bgIcon3: { top: 420, right: 18, transform: [{ rotate: '-8deg' }] },
+    bgIcon4: { top: 500, left: 30, transform: [{ rotate: '20deg' }] },
+    bgIcon5: { top: 560, right: 28, transform: [{ rotate: '-15deg' }] },
+    bgIcon6: { top: 620, left: 24, transform: [{ rotate: '10deg' }] },
+    bgIcon7: { top: 680, right: 36, transform: [{ rotate: '-20deg' }] },
+    bgIcon8: { top: 740, left: 50, transform: [{ rotate: '8deg' }] },
 
     // Header
     header: {
@@ -898,7 +1156,195 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
 
-    // Empty State
+    // Empty State — Hero illustration version (responsive)
+    emptyWrap: {
+        alignItems: 'center',
+        paddingTop: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+        paddingBottom: spacing.lg,
+    },
+    illustrationWrap: {
+        width: EMPTY_ILLUSTRATION_SIZE,
+        height: EMPTY_ILLUSTRATION_SIZE,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+    },
+    illustrationBubble: {
+        position: 'absolute',
+        borderRadius: 999,
+        backgroundColor: colors.primary.background,
+    },
+    illustrationBubble1: {
+        width: EMPTY_ILLUSTRATION_SIZE * 0.82,
+        height: EMPTY_ILLUSTRATION_SIZE * 0.82,
+        opacity: 0.55,
+    },
+    illustrationBubble2: {
+        width: EMPTY_ILLUSTRATION_SIZE * 0.36,
+        height: EMPTY_ILLUSTRATION_SIZE * 0.36,
+        top: EMPTY_ILLUSTRATION_SIZE * 0.09,
+        left: EMPTY_ILLUSTRATION_SIZE * 0.045,
+        opacity: 0.45,
+    },
+    illustrationBubble3: {
+        width: EMPTY_ILLUSTRATION_SIZE * 0.27,
+        height: EMPTY_ILLUSTRATION_SIZE * 0.27,
+        bottom: EMPTY_ILLUSTRATION_SIZE * 0.09,
+        right: EMPTY_ILLUSTRATION_SIZE * 0.04,
+        opacity: 0.55,
+    },
+    illustrationStarTL: {
+        position: 'absolute',
+        top: 0,
+        left: EMPTY_ILLUSTRATION_SIZE * 0.13,
+        opacity: 0.85,
+    },
+    illustrationStarTR: {
+        position: 'absolute',
+        top: EMPTY_ILLUSTRATION_SIZE * 0.05,
+        right: EMPTY_ILLUSTRATION_SIZE * 0.08,
+        opacity: 0.9,
+    },
+    illustrationIconRing: {
+        width: EMPTY_RING_SIZE,
+        height: EMPTY_RING_SIZE,
+        borderRadius: EMPTY_RING_SIZE / 2,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.primary.main,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+    // Dartboard (stacked concentric circles)
+    dartboardRing1: {
+        width: EMPTY_RING_SIZE * 0.78,
+        height: EMPTY_RING_SIZE * 0.78,
+        borderRadius: (EMPTY_RING_SIZE * 0.78) / 2,
+        backgroundColor: colors.primary.main,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dartboardRing2: {
+        width: '78%',
+        height: '78%',
+        borderRadius: 999,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dartboardRing3: {
+        width: '70%',
+        height: '70%',
+        borderRadius: 999,
+        backgroundColor: colors.primary.dark,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dartboardCenter: {
+        width: '40%',
+        height: '40%',
+        borderRadius: 999,
+        backgroundColor: '#fff',
+    },
+    emptyHeroTitle: {
+        fontSize: IS_SMALL_SCREEN ? 18 : 22,
+        fontWeight: '800' as any,
+        color: colors.text.primary,
+        textAlign: 'center',
+        marginBottom: spacing.xs,
+        letterSpacing: -0.3,
+    },
+    emptyHeroSubtitle: {
+        fontSize: IS_SMALL_SCREEN ? 13 : typography.fontSize.base,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+        lineHeight: IS_SMALL_SCREEN ? 18 : 22,
+    },
+    emptyCtaShadow: {
+        width: '85%',
+        borderRadius: 16,
+        shadowColor: colors.primary.main,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 8,
+        marginBottom: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+    },
+    emptyCta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        paddingVertical: IS_SMALL_SCREEN ? 11 : 14,
+        borderRadius: 16,
+    },
+    emptyCtaText: {
+        color: '#fff',
+        fontSize: IS_SMALL_SCREEN ? 14 : typography.fontSize.base,
+        fontWeight: '700' as any,
+        letterSpacing: 0.2,
+    },
+    suggestionsPanel: {
+        width: '100%',
+        backgroundColor: colors.primary.background,
+        borderRadius: 18,
+        padding: IS_SMALL_SCREEN ? spacing.md : spacing.lg,
+        alignItems: 'center',
+    },
+    suggestionsTitle: {
+        fontSize: IS_SMALL_SCREEN ? 14 : typography.fontSize.base,
+        fontWeight: '700' as any,
+        color: colors.text.primary,
+        marginBottom: 2,
+    },
+    suggestionsSubtitle: {
+        fontSize: IS_SMALL_SCREEN ? 12 : typography.fontSize.sm,
+        color: colors.text.secondary,
+        marginBottom: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+    },
+    suggestionRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        width: '100%',
+    },
+    suggestionCard: {
+        flex: 1,
+        backgroundColor: colors.background.primary,
+        borderRadius: 14,
+        padding: IS_SMALL_SCREEN ? spacing.sm : spacing.md,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    suggestionIconBg: {
+        width: IS_SMALL_SCREEN ? 38 : 48,
+        height: IS_SMALL_SCREEN ? 38 : 48,
+        borderRadius: IS_SMALL_SCREEN ? 19 : 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: IS_SMALL_SCREEN ? 6 : spacing.sm,
+    },
+    suggestionLabel: {
+        fontSize: IS_SMALL_SCREEN ? 12 : typography.fontSize.sm,
+        fontWeight: '700' as any,
+        color: colors.text.primary,
+        marginBottom: 2,
+    },
+    suggestionDesc: {
+        fontSize: IS_SMALL_SCREEN ? 10 : 11,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: IS_SMALL_SCREEN ? 13 : 14,
+    },
+
+    // Empty State (legacy — kept for safety)
     emptyContainer: {
         alignItems: 'center',
         paddingVertical: spacing['2xl'],

@@ -10,11 +10,15 @@ import { Alert, Platform } from 'react-native';
 import { REVENUECAT_CONFIG } from '@/infrastructure/revenuecat/config';
 import { syncAppsFlyerIdToRevenueCat } from '@/services/appsflyerService';
 
-// ============ Types ============
+
 
 interface SubscriptionState {
   /** Whether the RevenueCat SDK has been configured */
   isConfigured: boolean;
+  /** The appUserID currently identified to RevenueCat (Firebase UID after logIn).
+   *  Null when anonymous. Used by RootNavigator to ensure we evaluate isPro
+   *  against the *current* user's entitlements, not the anonymous default. */
+  identifiedUserId: string | null;
   /** Latest customer info from RevenueCat */
   customerInfo: CustomerInfo | null;
   /** Whether the user has the "Dreampath Pro" entitlement */
@@ -31,6 +35,10 @@ interface SubscriptionState {
   isPurchasing: boolean;
   /** Error message (cleared on next action) */
   error: string | null;
+  /** Error from the most recent failed logIn (after retries). Surfaced to the
+   *  RootNavigator so the user can retry identification instead of getting
+   *  stuck on a loading screen. */
+  identifyError: string | null;
 
   // Actions
   initialize: (appUserID?: string) => Promise<void>;
@@ -68,10 +76,31 @@ const deriveSubscriptionStatus = (info: CustomerInfo | null) => {
   };
 };
 
+/**
+ * Reconcile the denormalized Firestore subscriptionTier with RevenueCat's live
+ * entitlement after identification. RevenueCat is the source of truth, but the
+ * Firestore field can drift if a sub expires or renews while the app is closed
+ * (those transitions only sync via the in-session update listener). Only writes
+ * when the tier actually differs, and only for the currently identified user.
+ */
+const reconcileFirestoreTier = async (info: CustomerInfo, userId: string) => {
+  const desiredTier = hasPro(info) ? 'pro' : 'free';
+  try {
+    const { useAuthStore } = await import('@/infrastructure/stores/authStore');
+    const currentTier = useAuthStore.getState().user?.subscriptionTier;
+    if (currentTier === desiredTier) return;
+    const { setSubscriptionTier } = await import('@/infrastructure/firebase/authService');
+    await setSubscriptionTier(userId, desiredTier);
+  } catch (e) {
+    console.warn('[RevenueCat] Firestore tier reconcile failed:', e);
+  }
+};
+
 // ============ Store ============
 
 export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
   isConfigured: false,
+  identifiedUserId: null,
   customerInfo: null,
   isPro: false,
   hasEverSubscribed: false,
@@ -81,6 +110,7 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
   isRestoring: false,
   isPurchasing: false,
   error: null,
+  identifyError: null,
 
   /**
    * Configure the RevenueCat SDK and fetch initial customer info.
@@ -102,25 +132,41 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
         apiKey: REVENUECAT_CONFIG.apiKey,
         appUserID: appUserID ?? undefined,
       });
-      console.log('REVENUECAT_CONFIG.apiKey', REVENUECAT_CONFIG.apiKey);
 
-      // Listen for customer info changes (e.g. subscription renewals, cancellations)
+      // Listen for customer info changes (renewals, cancellations, expirations).
+      // Syncs both upgrades AND downgrades to Firestore. The originalAppUserId
+      // guard prevents a user-switch from being mis-read as a downgrade —
+      // a real downgrade keeps the same originalAppUserId, only the
+      // entitlement status flips.
       Purchases.addCustomerInfoUpdateListener((info) => {
+        const prevInfo = get().customerInfo;
+        const prevPro = hasPro(prevInfo);
         const status = deriveSubscriptionStatus(info);
-        const prevPro = get().isPro;
         set({
           customerInfo: info,
           ...status,
         });
-        // Sync tier upgrades to Firestore on transition false -> true.
-        // Downgrades to 'free' are recorded only when the user dismisses the expired-paywall,
-        // so we don't auto-write 'free' here.
+
+        const sameUser =
+          prevInfo?.originalAppUserId === info.originalAppUserId;
+        if (!sameUser) return; // user switch — not a real transition
+
         if (!prevPro && status.isPro) {
+          // Upgrade: false → true
           import('@/infrastructure/stores/authStore').then(({ useAuthStore }) => {
             const userId = useAuthStore.getState().user?.id;
-            if (!userId) return;
+            if (!userId || get().identifiedUserId !== userId) return;
             import('@/infrastructure/firebase/authService').then(({ setSubscriptionTier }) => {
               setSubscriptionTier(userId, 'pro');
+            });
+          });
+        } else if (prevPro && !status.isPro) {
+          // Downgrade: true → false (sub expired or cancelled mid-session)
+          import('@/infrastructure/stores/authStore').then(({ useAuthStore }) => {
+            const userId = useAuthStore.getState().user?.id;
+            if (!userId || get().identifiedUserId !== userId) return;
+            import('@/infrastructure/firebase/authService').then(({ setSubscriptionTier }) => {
+              setSubscriptionTier(userId, 'free');
             });
           });
         }
@@ -132,6 +178,10 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
       set({
         isConfigured: true,
         customerInfo: info,
+        // If we initialized with an explicit appUserID, RC is already identified
+        // as that user — record it so RootNavigator's gate can resolve without
+        // waiting for a follow-up logIn().
+        identifiedUserId: appUserID ?? null,
         ...deriveSubscriptionStatus(info),
         isLoading: false,
       });
@@ -277,18 +327,47 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
    * This transfers any anonymous purchases to the identified user.
    */
   logIn: async (appUserID: string) => {
-    try {
-      set({ error: null });
-      const { customerInfo } = await Purchases.logIn(appUserID);
-      set({
-        customerInfo,
-        ...deriveSubscriptionStatus(customerInfo),
-      });
-      await syncAppsFlyerIdToRevenueCat();
-    } catch (error: any) {
-      console.error('[RevenueCat] Login error:', error);
-      set({ error: error.message || 'Failed to sync subscription account' });
+    // Retry with linear backoff (300ms, 900ms) — transient network failures
+    // on first launch are common and identification is a hard requirement
+    // for the paywall gate. On final failure we surface identifyError so
+    // the RootNavigator can show a retry UI instead of an endless spinner.
+    set({ error: null, identifyError: null });
+
+    const MAX_ATTEMPTS = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const { customerInfo } = await Purchases.logIn(appUserID);
+        set({
+          customerInfo,
+          identifiedUserId: appUserID,
+          identifyError: null,
+          ...deriveSubscriptionStatus(customerInfo),
+        });
+        // Reconcile the Firestore tier in case the entitlement changed while
+        // the app was closed (expiry/renewal not seen by the live listener).
+        reconcileFirestoreTier(customerInfo, appUserID);
+        await syncAppsFlyerIdToRevenueCat();
+        return;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(
+          `[RevenueCat] logIn attempt ${attempt}/${MAX_ATTEMPTS} failed:`,
+          error?.message,
+        );
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, 300 * attempt * attempt));
+        }
+      }
     }
+
+    console.error('[RevenueCat] logIn failed after retries:', lastError);
+    set({
+      identifyError:
+        lastError?.message || 'Failed to sync subscription account',
+      error: lastError?.message || 'Failed to sync subscription account',
+    });
   },
 
   /**
@@ -296,10 +375,11 @@ export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
    */
   logOut: async () => {
     try {
-      set({ error: null });
+      set({ error: null, identifyError: null });
       const info = await Purchases.logOut();
       set({
         customerInfo: info,
+        identifiedUserId: null,
         ...deriveSubscriptionStatus(info),
       });
     } catch (error: any) {

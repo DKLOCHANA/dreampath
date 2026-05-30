@@ -7,18 +7,21 @@ const fontFamily = Platform.select({
     medium: 'System',
     semibold: 'System',
     bold: 'System',
+    serif: 'Georgia',
   },
   android: {
     regular: 'Roboto',
     medium: 'Roboto-Medium',
     semibold: 'Roboto-Medium',
     bold: 'Roboto-Bold',
+    serif: 'serif',
   },
   default: {
     regular: 'System',
     medium: 'System',
     semibold: 'System',
     bold: 'System',
+    serif: 'Georgia',
   },
 });
 
@@ -147,6 +150,12 @@ export const typography = {
       fontWeight: '600' as const,
       lineHeight: 24,
       letterSpacing: 0.5,
+    },
+    buttonMedium: {
+      fontSize: 15,
+      fontWeight: '600' as const,
+      lineHeight: 22,
+      letterSpacing: 0.4,
     },
     buttonSmall: {
       fontSize: 14,

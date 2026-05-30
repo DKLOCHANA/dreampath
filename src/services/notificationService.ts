@@ -5,7 +5,9 @@ import { Alert, Linking } from 'react-native';
 
 const NOTIF_ENABLED_KEY = '@dreampath_notifications_enabled';
 const NOTIF_IDENTIFIER = 'dreampath_reengagement';
+const TRIAL_END_NOTIF_IDENTIFIER = 'dreampath_trial_end_reminder';
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const MESSAGES = [
     {
@@ -107,6 +109,55 @@ export const cancelReengagementNotification = async (): Promise<void> => {
         await Notifications.cancelScheduledNotificationAsync(NOTIF_IDENTIFIER);
     } catch {
         // Ignore — may not exist
+    }
+};
+
+/**
+ * Schedule a one-shot reminder 24h before the user's free trial converts to a
+ * paid subscription. Pass the trial's expiration timestamp (ms). If the
+ * reminder window has already passed, this no-ops silently.
+ */
+export const scheduleTrialEndReminder = async (
+    trialEndMs: number,
+): Promise<void> => {
+    try {
+        await Notifications.cancelScheduledNotificationAsync(TRIAL_END_NOTIF_IDENTIFIER);
+    } catch {
+        // Not yet scheduled — safe to ignore
+    }
+
+    const fireAt = trialEndMs - ONE_DAY_MS;
+    if (fireAt <= Date.now()) {
+        console.log('[Notifications] Trial-end reminder window already passed');
+        return;
+    }
+
+    try {
+        await Notifications.scheduleNotificationAsync({
+            identifier: TRIAL_END_NOTIF_IDENTIFIER,
+            content: {
+                title: 'Your free trial ends tomorrow',
+                body: "Heads-up — billing starts in 24 hours. Cancel in one tap if VividGoals isn't for you.",
+                sound: true,
+                badge: 1,
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: new Date(fireAt),
+            },
+        });
+        console.log('[Notifications] Trial-end reminder scheduled for', new Date(fireAt).toISOString());
+    } catch (error) {
+        console.warn('[Notifications] Failed to schedule trial-end reminder:', error);
+    }
+};
+
+/** Cancel the trial-end reminder (purchase refunded, user upgraded, etc.) */
+export const cancelTrialEndReminder = async (): Promise<void> => {
+    try {
+        await Notifications.cancelScheduledNotificationAsync(TRIAL_END_NOTIF_IDENTIFIER);
+    } catch {
+        // Ignore
     }
 };
 

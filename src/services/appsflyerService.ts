@@ -70,13 +70,13 @@ export const initializeAppsFlyer = (): Promise<void> => {
                 onDeepLinkListener: false,
                 timeToWaitForATTUserAuthorization: APPSFLYER_CONFIG.attTimeout,
             },
-            (result) => {
+            (result: unknown) => {
                 console.log('[AppsFlyer] SDK initialized:', result);
                 _initState = 'ready';
                 _cacheUID();
                 resolve();
             },
-            (error) => {
+            (error: Error | undefined) => {
                 console.error('[AppsFlyer] SDK init error:', error);
                 _initState = 'failed';
                 _initPromise = null; // allow a future caller to retry
@@ -132,7 +132,7 @@ export const getTrackingStatus = async (): Promise<PermissionStatus> => {
 
 /** Pre-cache the UID after init so it's available synchronously later. */
 const _cacheUID = (): void => {
-    appsFlyer.getAppsFlyerUID((error, uid) => {
+    appsFlyer.getAppsFlyerUID((error: Error | null, uid: string) => {
         if (!error && uid) {
             _appsFlyerUID = uid;
             console.log('[AppsFlyer] UID cached:', uid);
@@ -148,7 +148,7 @@ export const getAppsFlyerUID = (): Promise<string | null> => {
     if (_appsFlyerUID) return Promise.resolve(_appsFlyerUID);
 
     return new Promise((resolve) => {
-        appsFlyer.getAppsFlyerUID((error, uid) => {
+        appsFlyer.getAppsFlyerUID((error: Error | null, uid: string) => {
             if (error) {
                 console.error('[AppsFlyer] Failed to get UID:', error);
                 resolve(null);

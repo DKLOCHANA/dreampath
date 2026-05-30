@@ -30,7 +30,7 @@ export const TrackingScreen: React.FC = () => {
             value={tracking}
             onChange={(v) => setAnswer('tracking', v)}
             onBack={() => navigation.goBack()}
-            onContinue={() => navigation.navigate('Momentum')}
+            onContinue={() => navigation.navigate('Mirror')}
         />
     );
 };
